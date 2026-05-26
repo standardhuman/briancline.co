@@ -267,7 +267,7 @@ serve(async (req) => {
       }
       const { data: existingBoat } = await supabase.from('boats').select('*')
         .or(`and(customer_id.eq.${customer.id},name.eq.${formData.boatName}),and(customer_email.eq.${formData.customerEmail},name.eq.${formData.boatName})`)
-        .limit(1).maybySingle()
+        .limit(1).maybeSingle()
       if (existingBoat) {
         const { data: updatedBoat } = await supabase.from('boats').update(boatData).eq('id', existingBoat.id).select().single()
         boat = updatedBoat
