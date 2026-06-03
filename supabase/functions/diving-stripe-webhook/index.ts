@@ -29,7 +29,13 @@ const stripe = new Stripe(stripeSecretKey ?? '', {
   httpClient: Stripe.createFetchHttpClient(),
 })
 
-const resend = new Resend(Deno.env.get('RESEND_API_KEY') ?? '')
+// Diving order emails send from diving@briancline.co, whose domain is verified in
+// a SEPARATE Resend team from the shared RESEND_API_KEY (that key serves the
+// sailorskills.com senders in this project). Use a dedicated key so the two domains
+// stay isolated; fall back to the shared key if the dedicated one isn't configured.
+const resend = new Resend(
+  Deno.env.get('RESEND_API_KEY_DIVING') ?? Deno.env.get('RESEND_API_KEY') ?? '',
+)
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -149,7 +155,18 @@ async function handleSetupIntentSucceeded(setupIntent: Stripe.SetupIntent): Prom
     try {
       await sendOrderEmails(orderForEmail, card?.brand || null, card?.last4 || null)
     } catch (emailErr: any) {
-      console.error('Email send failed (non-fatal):', emailErr?.message, emailErr)
+      // The confirmation_email_sent_at stamp above is an idempotency claim taken
+      // BEFORE the send. If the send fails we must release it, otherwise the email
+      // is lost forever and never retried (the bug that silently dropped the
+      // 2026-06-03 order's emails). Release the claim and rethrow so the top-level
+      // handler returns 500 and Stripe redelivers. Every write above this point is
+      // idempotent (payment_methods upsert, fixed-value updates), so a full retry
+      // is safe.
+      console.error('Email send failed; releasing claim for retry:', emailErr?.message, emailErr)
+      await supabase.from('service_orders')
+        .update({ confirmation_email_sent_at: null })
+        .eq('id', authRow.service_order_id)
+      throw new Error(`Confirmation email send failed: ${emailErr?.message || emailErr}`)
     }
   } else if (authRow.service_order_id) {
     console.log(`Confirmation email already sent for order ${authRow.service_order_id} (idempotent skip on retry of ${setupIntent.id})`)

@@ -9,3 +9,6 @@ dist/
 # Temporary screenshot files
 projects-*.png
 .env*.local
+
+# Supabase CLI local temp
+supabase/.temp/

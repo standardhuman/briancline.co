@@ -109,6 +109,15 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
     }
 
+    // Canonicalize the one-time marker. The order form sends "one_time" (underscore)
+    // for one-time *cleaning* orders but the literal "one-time" (hyphen) for other
+    // one-time services. Every downstream recurring check below compares against
+    // "one-time", so without this an underscore one-time order is misread as
+    // recurring — creating a service_schedule, flipping auto_charge_enabled, and
+    // tagging it recurring_cleaning. Normalize once, here.
+    if (formData.serviceInterval === 'one_time') formData.serviceInterval = 'one-time'
+    if (formData.serviceDetails?.frequency === 'one_time') formData.serviceDetails.frequency = 'one-time'
+
     const rl = checkRateLimits(remoteIp, formData.customerEmail || null)
     if (!rl.ok) {
       return new Response(JSON.stringify({ error: 'Too many requests. Please try again later.' }),

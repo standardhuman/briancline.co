@@ -327,7 +327,16 @@ function OrderForm({ searchParams, navigate }) {
     expiryComplete: false,
     cvcComplete: false,
   });
-  const [cardError, setCardError] = useState(null);
+  // Per-field card errors. Each Stripe element owns its own slot so a field that
+  // becomes valid clears its own message — and one field's error never overwrites
+  // (or lingers past) another's. Previously a single shared string was only ever
+  // cleared by the Number element, so a transient "expiration incomplete" message
+  // stuck around even after the expiry field was filled correctly.
+  const [cardErrors, setCardErrors] = useState({ number: null, expiry: null, cvc: null });
+  const setFieldError = useCallback((field, message) => {
+    setCardErrors((prev) => ({ ...prev, [field]: message || null }));
+  }, []);
+  const cardError = cardErrors.number || cardErrors.expiry || cardErrors.cvc;
   const [turnstileToken, setTurnstileToken] = useState("");
   const [zipError, setZipError] = useState(null);
 
@@ -826,7 +835,7 @@ function OrderForm({ searchParams, navigate }) {
                 options={STRIPE_ELEMENT_OPTIONS}
                 onChange={(e) => {
                   setCardState((prev) => ({ ...prev, numberComplete: e.complete }));
-                  setCardError(e.error ? e.error.message : null);
+                  setFieldError("number", e.error ? e.error.message : null);
                 }}
               />
             </div>
@@ -841,7 +850,7 @@ function OrderForm({ searchParams, navigate }) {
                   options={STRIPE_ELEMENT_OPTIONS}
                   onChange={(e) => {
                     setCardState((prev) => ({ ...prev, expiryComplete: e.complete }));
-                    if (e.error) setCardError(e.error.message);
+                    setFieldError("expiry", e.error ? e.error.message : null);
                   }}
                 />
               </div>
@@ -853,7 +862,7 @@ function OrderForm({ searchParams, navigate }) {
                   options={STRIPE_ELEMENT_OPTIONS}
                   onChange={(e) => {
                     setCardState((prev) => ({ ...prev, cvcComplete: e.complete }));
-                    if (e.error) setCardError(e.error.message);
+                    setFieldError("cvc", e.error ? e.error.message : null);
                   }}
                 />
               </div>
