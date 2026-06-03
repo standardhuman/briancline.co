@@ -65,12 +65,12 @@ function looksLikeJunkString(s: string): boolean {
   const cleaned = s.trim()
   if (cleaned.length < 3) return true
   if (uniqueChars(cleaned) <= 2) return true
-  if (/(.)\\1{3,}/.test(cleaned)) return true
+  if (/(.)\1{3,}/.test(cleaned)) return true
   return false
 }
 
 function digitsOnly(s: string): string {
-  return (s || '').replace(/\\D+/g, '')
+  return (s || '').replace(/\D+/g, '')
 }
 
 function extractAreaCode(phone: string): string | null {
