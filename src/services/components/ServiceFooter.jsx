@@ -8,9 +8,9 @@ export default function ServiceFooter() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
           {/* Brand */}
           <div>
-            <Link to="/marine" className="inline-flex items-baseline gap-2 text-xl font-bold">
-              briancline<span className="text-[#0097a7]">.</span>co
-              <span className="text-xs font-semibold tracking-wide uppercase text-[#0097a7]">vessel management</span>
+            <Link to="/marine" className="inline-flex items-baseline gap-2 text-xl font-bold" style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+              briancline<span className="text-[#00bcd4]">.</span>co
+              <span className="text-xs font-semibold tracking-wide uppercase text-[#d4a85c]">vessel management</span>
             </Link>
             <p className="mt-3 text-gray-400 text-sm leading-relaxed">
               Vessel management on San Francisco Bay. Hull cleaning, detailing, sailing instruction, and vessel deliveries — one point of contact for everything your boat needs.

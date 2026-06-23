@@ -18,10 +18,10 @@ export default function ServiceNav() {
     <nav className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm z-50 border-b border-gray-100">
       <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
         {/* Logo — clicks to /marine */}
-        <Link to="/marine" className="flex items-baseline gap-1.5 text-lg font-bold text-gray-900" style={{ letterSpacing: "-0.02em" }}>
-          <span className="md:hidden">bc<span style={{ color: "#0073a8", fontSize: "1.4em", lineHeight: 0, position: "relative", top: "0.05em" }}>.</span></span>
-          <span className="hidden md:inline">briancline<span style={{ color: "#0073a8" }}>.</span>co</span>
-          <span className="text-xs font-semibold tracking-wide uppercase" style={{ color: "#0097a7" }}>vessel management</span>
+        <Link to="/marine" className="flex items-baseline gap-1.5 text-lg font-bold text-[#0a1628]" style={{ letterSpacing: "-0.02em", fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+          <span className="md:hidden">bc<span style={{ color: "#00bcd4", fontSize: "1.4em", lineHeight: 0, position: "relative", top: "0.05em" }}>.</span></span>
+          <span className="hidden md:inline">briancline<span style={{ color: "#00bcd4" }}>.</span>co</span>
+          <span className="text-xs font-semibold tracking-wide uppercase" style={{ color: "#7a5a22" }}>vessel management</span>
         </Link>
 
         {/* Desktop Nav */}
@@ -36,8 +36,8 @@ export default function ServiceNav() {
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    ? "bg-[#b8863b]/10 text-[#7a5a22]"
+                    : "text-gray-600 hover:text-[#0a1628] hover:bg-gray-50"
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -51,7 +51,8 @@ export default function ServiceNav() {
         <div className="flex items-center gap-3">
           <a
             href="mailto:brian@briancline.co?subject=Vessel%20Management%20Inquiry"
-            className="hidden sm:inline-flex px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            className="hidden sm:inline-flex px-4 py-2 text-white rounded-lg text-sm font-semibold transition-all hover:brightness-105"
+            style={{ background: "linear-gradient(135deg,#c2933f,#8a6526)", fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
           >
             Contact
           </a>
@@ -85,8 +86,8 @@ export default function ServiceNav() {
                 className={cn(
                   "flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    ? "bg-[#b8863b]/10 text-[#7a5a22]"
+                    : "text-gray-600 hover:text-[#0a1628] hover:bg-gray-50"
                 )}
               >
                 <Icon className="w-4 h-4" />
@@ -96,7 +97,7 @@ export default function ServiceNav() {
           })}
           <a
             href="mailto:brian@briancline.co?subject=Vessel%20Management%20Inquiry"
-            className="block px-3 py-2.5 text-sm font-medium text-primary"
+            className="block px-3 py-2.5 text-sm font-semibold text-[#7a5a22]"
           >
             Contact Brian
           </a>
