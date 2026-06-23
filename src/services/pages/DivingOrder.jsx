@@ -270,6 +270,21 @@ function OrderForm({ searchParams, navigate }) {
   const initialLastCleaned = searchParams.get("lastCleaned") || "";
   const initialAnodes = searchParams.get("anodes") || "0";
 
+  // Identity + owner pre-fill (SailorSkills boat-portal deep link). These mirror
+  // the shared querystring contract defined in the marketplace repo at
+  // src/lib/portal/orderPrefill.ts — when a one-time SailorSkills client books
+  // from their boat portal, we already know their boat + contact, so we pre-fill
+  // it here. Every value is an editable hint; nothing is trusted server-side.
+  const initialBoatName = searchParams.get("boatName") || "";
+  const initialBoatMake = searchParams.get("boatMake") || "";
+  const initialBoatModel = searchParams.get("boatModel") || "";
+  const initialMarina = searchParams.get("marina") || "";
+  const initialDock = searchParams.get("dock") || "";
+  const initialSlip = searchParams.get("slip") || "";
+  const initialCustomerName = searchParams.get("customerName") || "";
+  const initialCustomerEmail = searchParams.get("customerEmail") || "";
+  const initialCustomerPhone = searchParams.get("customerPhone") || "";
+
   const service = SERVICES[serviceKey] || SERVICES.recurring_cleaning;
 
   // Combine hull + type into a single boat type value
@@ -287,17 +302,17 @@ function OrderForm({ searchParams, navigate }) {
 
   // Form state
   const [form, setForm] = useState({
-    boatName: "",
+    boatName: initialBoatName,
     boatType: validBoatType,
-    boatMake: "",
-    boatModel: "",
+    boatMake: initialBoatMake,
+    boatModel: initialBoatModel,
     boatLength: initialLength,
-    marina: "",
-    dock: "",
-    slip: "",
-    customerName: "",
-    customerEmail: "",
-    customerPhone: "",
+    marina: initialMarina,
+    dock: initialDock,
+    slip: initialSlip,
+    customerName: initialCustomerName,
+    customerEmail: initialCustomerEmail,
+    customerPhone: initialCustomerPhone,
     billingAddress: "",
     billingCity: "",
     billingState: "",
