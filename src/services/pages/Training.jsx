@@ -47,13 +47,13 @@ export default function Training() {
     <div>
       <PageMeta
         title="Sailing Lessons on San Francisco Bay | Brian Cline"
-        description="Learn to sail on San Francisco Bay with a US Sailing instructor. Private and small-group sailing lessons from basic keelboat to offshore passage making. Nearly 20 years of teaching experience."
+        description="Learn to sail on San Francisco Bay directly with a US Sailing Cruising Instructor and USCG Licensed Master. Private and small-group sailing lessons from basic keelboat to offshore passage making. Nearly 20 years of teaching experience."
       />
       <JsonLd data={{
         "@context": "https://schema.org",
         "@type": "Service",
         "name": "Sailing Lessons - San Francisco Bay",
-        "description": "Private and small-group sailing instruction on San Francisco Bay. US Sailing certified instructor with nearly 20 years of experience. Beginner through advanced offshore passage making.",
+        "description": "Private and small-group sailing instruction on San Francisco Bay, taught directly by a US Sailing Cruising Instructor and USCG Licensed Master with nearly 20 years of experience. Beginner through advanced offshore passage making.",
         "provider": { "@id": "https://briancline.co/#vessel-management" },
         "areaServed": { "@type": "Place", "name": "San Francisco Bay Area" },
         "serviceType": "Sailing Instruction",
