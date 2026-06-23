@@ -1,0 +1,93 @@
+/* ==========================================================================
+   BC MARINE — Design Tokens  ·  “Captain’s Brass”
+   Marine services on San Francisco Bay · Brian Cline
+
+   A cousin of SailorSkills/Pro, sharing DNA with briancline.co:
+     • navy + cyan  = shared family DNA (from briancline.co homepage)
+     • brass        = BC Marine's OWN signature accent
+     • Space Grotesk headlines + Inter body = distinct from SailorSkills' Montserrat
+   Drop-in for Tailwind v4 (@theme) + plain CSS custom properties.
+   ========================================================================== */
+
+:root {
+  /* ---- Brand navy (deep — from briancline.co, NOT the brighter SailorSkills navy) ---- */
+  --navy:      #0a1628;  /* primary brand · hero · headings · dark surfaces */
+  --navy-2:    #0d2137;  /* gradient mid · raised navy */
+  --navy-3:    #13294a;  /* hairlines / hover on navy */
+
+  /* ---- Cyan (SHARED DNA with briancline.co + SailorSkills — use sparingly) ---- */
+  --cyan:      #00bcd4;  /* small accents · links · the family “tell” */
+  --cyan-deep: #00a5bb;
+
+  /* ---- Brass (BC MARINE'S OWN signature accent) ---- */
+  --brass:       #b8863b;  /* signature accent · rules · highlights */
+  --brass-light: #d4a85c;  /* on-navy text · hover glints */
+  --brass-dark:  #7a5a22;  /* brass text on light bg (AA contrast) */
+  --grad-brass:  linear-gradient(135deg, #c2933f, #8a6526);  /* primary CTA */
+
+  /* ---- Surfaces (warm paper, not cool gray) ---- */
+  --paper:          #faf8f4; /* page background (warm off-white) */
+  --surface:        #ffffff; /* cards */
+  --surface-subtle: #f3efe8; /* inputs, subtle fills */
+  --border:         #e7e1d6; /* warm hairline */
+  --border-strong:  #d8d0c0;
+
+  /* ---- Text ---- */
+  --text:           #0a1628; /* primary = deep navy */
+  --text-secondary: #57534a; /* warm slate */
+  --text-muted:     #8a857a;
+  --text-faint:     #a8a294;
+  --on-navy:        #ffffff;
+
+  /* ---- Semantic (warm-tuned) ---- */
+  --success: #1f9d57;  --success-bg: #e9f6ee;
+  --warning: #d9822b;
+  --danger:  #d04a3b;
+
+  /* ---- Signature gradients ---- */
+  --grad-cta:  linear-gradient(135deg, #c2933f, #8a6526);            /* brass — primary action */
+  --grad-navy: linear-gradient(135deg, #0a1628 0%, #0d2137 55%, #0a1628 100%); /* hero (matches briancline.co) */
+
+  /* ---- Navy-tinted shadows (never pure black) ---- */
+  --shadow-xs: 0 1px 2px rgba(10,22,40,.05);
+  --shadow-sm: 0 1px 3px rgba(10,22,40,.07);
+  --shadow-md: 0 4px 12px rgba(10,22,40,.08);
+  --shadow-lg: 0 14px 34px rgba(10,22,40,.12);
+  --shadow-xl: 0 30px 70px rgba(10,22,40,.20);
+
+  /* ---- Radius (a touch tighter than SailorSkills — more crafted/editorial) ---- */
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   22px;
+  --r-pill: 999px;
+
+  /* ---- Type ---- */
+  --font-display: 'Space Grotesk', system-ui, sans-serif;  /* headlines */
+  --font-sans:    'Inter', system-ui, -apple-system, sans-serif; /* body (briancline.co DNA) */
+  /* Display 600–700 · Headings 600 · Body 400–500 · Labels/Buttons 600–700 */
+
+  /* ---- Spacing (8px base) ---- */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --space-14: 56px; --space-20: 80px;
+}
+
+/* --------------------------------------------------------------------------
+   Tailwind v4 — paste into your @theme block (src/services/styles.css)
+   --------------------------------------------------------------------------
+@theme {
+  --color-navy:        #0a1628;
+  --color-cyan:        #00bcd4;
+  --color-brass:       #b8863b;
+  --color-brass-dark:  #7a5a22;
+  --color-paper:       #faf8f4;
+  --color-surface:     #ffffff;
+  --color-border:      #e7e1d6;
+  --color-foreground:  #0a1628;
+  --color-muted-foreground: #57534a;
+  --font-display:      'Space Grotesk', sans-serif;
+  --font-sans:         'Inter', sans-serif;
+  --radius:            16px;
+}
+-------------------------------------------------------------------------- */

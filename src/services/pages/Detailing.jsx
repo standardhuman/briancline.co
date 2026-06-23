@@ -610,7 +610,7 @@ export default function Detailing() {
       }} />
       <PageHero
         title="Boat Detailing"
-        subtitle="Above-the-waterline care for your boat. Wash, polish, wax, metal work, and brightwork — done right, on the East Bay."
+        subtitle="Above-the-waterline care for your boat — wash, polish, wax, metal work, and brightwork, managed to one consistent standard of care across the East Bay."
         price=""
         credentials="Serving Berkeley, Emeryville, Richmond, and Oakland marinas"
         cta="Get an Estimate"
@@ -627,7 +627,7 @@ export default function Detailing() {
           <h2 className="text-3xl font-bold text-foreground mb-10 text-center">What to Expect</h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: Shield, title: "Satisfaction Guarantee", desc: "Not happy? I'll come back and make it right." },
+              { icon: Shield, title: "Satisfaction Guarantee", desc: "Not happy? We'll make it right." },
               { icon: MessageSquare, title: "Clear Communication", desc: "You'll know exactly what's happening and when." },
               { icon: Camera, title: "Before & After Photos", desc: "Documentation of every job." },
               { icon: CheckCircle2, title: "Service Log", desc: "Track what's been done and when it's due again." },

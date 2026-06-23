@@ -130,7 +130,7 @@ const SERVICE_LIST = [
 const FAQS = [
   {
     q: "Which marinas do you service?",
-    a: "I'm currently serving Berkeley Marina exclusively. If your boat is kept at another Bay Area marina, email me at diving@briancline.co with your marina and boat details — I'll connect you with a trusted dive professional from my network.",
+    a: "We currently serve Berkeley Marina exclusively. If your boat is kept at another Bay Area marina, email me at diving@briancline.co with your marina and boat details — I'll connect you with a trusted dive professional from my network.",
   },
   {
     q: "How do you rate levels of marine growth?",
@@ -154,7 +154,7 @@ const FAQS = [
   },
   {
     q: "What do you use to clean the bottom?",
-    a: "I use tools ranging from soft cloths to steel scrapers, matched to each growth type. I always use minimum effective abrasion to protect your paint. If I can't achieve a clean finish without removing paint, I'll let you know it's time to plan your next haul-out.",
+    a: "Every cleaning uses tools ranging from soft cloths to steel scrapers, matched to each growth type — always at the minimum effective abrasion needed to protect your paint, the standard I hold my divers to. If a clean finish isn't possible without removing paint, we'll let you know it's time to plan your next haul-out.",
   },
   {
     q: "Why doesn't my hull look perfectly clean after cleaning?",
@@ -162,15 +162,15 @@ const FAQS = [
   },
   {
     q: "Do you scrub the gel coat or unpainted surfaces?",
-    a: "No. I clean up to the antifouling paint line only. I avoid scraping or scrubbing gel coat and unpainted surfaces to protect them from damage. If your waterline is submerged, consider lightening the vessel or raising the paint line at your next haul-out. For above-waterline cleaning, see my detailing services.",
+    a: "No. We clean up to the antifouling paint line only, and avoid scraping or scrubbing gel coat and unpainted surfaces to protect them from damage. If your waterline is submerged, consider lightening the vessel or raising the paint line at your next haul-out. For above-waterline cleaning, see our detailing services.",
   },
   {
     q: "How do you protect my paint and the environment?",
-    a: "My job is to remove growth while avoiding paint removal whenever possible. I use the least abrasive tool that gets the job done, which protects both your antifouling paint and minimizes particles released into the water. If the paint can't be cleaned without damage, I'll recommend a haul-out rather than force it.",
+    a: "Our job is to remove growth while avoiding paint removal whenever possible. We use the least abrasive tool that gets the job done, which protects your antifouling paint and minimizes particles released into the water. If the paint can't be cleaned without damage, we'll recommend a haul-out rather than force it.",
   },
   {
     q: "Do you offer one-time services?",
-    a: "Yes! While regular service offers the best performance and savings, I'm happy to provide one-time cleanings — especially for voyage preparation.",
+    a: "Yes! While regular service offers the best performance and savings, we're happy to provide one-time cleanings — especially for voyage preparation.",
   },
   {
     q: "I need a cleaning before a race. Can you help?",
@@ -178,7 +178,7 @@ const FAQS = [
   },
   {
     q: "I dropped something in the water. Can you retrieve it?",
-    a: "I'm happy to help! Off-schedule retrievals require booking as a one-time service. For regular clients, items retrieved during scheduled service incur no extra charge. Important: don't disturb the bottom before I arrive. I cannot guarantee successful or undamaged retrieval. If I can't find the item in 20 minutes, I'll search another 20 minutes at no additional charge.",
+    a: "Happy to help! Off-schedule retrievals require booking as a one-time service. For regular clients, items retrieved during scheduled service incur no extra charge. Important: don't disturb the bottom before your diver arrives. We can't guarantee successful or undamaged retrieval, but if we can't find the item in the first 20 minutes, we'll search another 20 at no additional charge.",
   },
   {
     q: "Do you offer a referral program?",
@@ -390,7 +390,7 @@ export default function Diving() {
                 Hull Cleaning & Dive Services
               </h1>
               <p className="text-lg text-gray-600 max-w-2xl">
-                Professional underwater hull cleaning on San Francisco Bay. Transparent pricing based on your boat's specs — get an instant estimate.
+                Professional underwater hull cleaning on San Francisco Bay, directed to a USCG-licensed Master's standard of care. Transparent pricing based on your boat's specs — get an instant estimate.
               </p>
               <div className="mt-5 max-w-2xl inline-flex items-start gap-2 rounded-xl border-2 border-primary-200 bg-primary-50/70 px-4 py-3 text-sm text-left text-gray-800">
                 <Info className="w-5 h-5 flex-shrink-0 text-[#0073a8] mt-0.5" />

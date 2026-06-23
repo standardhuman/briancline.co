@@ -1,0 +1,63 @@
+<!-- @dsCard group="Foundations" name="Color" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BC Marine — Color</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper:#faf8f4; --surface:#fff; --border:#e7e1d6;
+      --text:#0a1628; --text-muted:#8a857a; --text-faint:#a8a294;
+      --font-display:'Space Grotesk',system-ui,sans-serif; --font-sans:'Inter',system-ui,sans-serif;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--text); font-family:var(--font-sans); padding:28px; }
+    h2 { font-family:var(--font-display); font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:var(--text-muted); margin:0 0 6px; }
+    .eyebrow { font-family:var(--font-display); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:#7a5a22; margin:22px 0 12px; }
+    .swatches { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:14px; }
+    .swatch { border-radius:12px; overflow:hidden; border:1px solid var(--border); background:var(--surface); box-shadow:0 1px 2px rgba(10,22,40,.05); }
+    .chip { height:64px; }
+    .meta { padding:9px 11px; }
+    .name { font-family:var(--font-display); font-size:13px; font-weight:600; }
+    .hex { font-size:12px; font-weight:500; color:var(--text-muted); }
+    .role { font-size:11px; color:var(--text-faint); margin-top:2px; }
+    .gradrow { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; }
+    .gradtile { border-radius:16px; padding:16px; color:#fff; min-height:86px; display:flex; flex-direction:column; justify-content:flex-end; border:1px solid var(--border); }
+    .gname { font-family:var(--font-display); font-size:13px; font-weight:600; }
+    .gval { font-size:11px; font-weight:500; opacity:.85; }
+  </style>
+</head>
+<body>
+  <h2>Color</h2>
+  <p class="eyebrow">Shared DNA — navy &amp; cyan (from briancline.co)</p>
+  <div class="swatches">
+    <div class="swatch"><div class="chip" style="background:#0a1628;"></div><div class="meta"><div class="name">Navy</div><div class="hex">#0A1628</div><div class="role">brand · hero · text</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#0d2137;"></div><div class="meta"><div class="name">Navy 2</div><div class="hex">#0D2137</div><div class="role">gradient mid</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#00bcd4;"></div><div class="meta"><div class="name">Cyan</div><div class="hex">#00BCD4</div><div class="role">family accent · sparingly</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#00a5bb;"></div><div class="meta"><div class="name">Cyan deep</div><div class="hex">#00A5BB</div><div class="role">cyan links</div></div></div>
+  </div>
+  <p class="eyebrow">BC Marine's own — brass</p>
+  <div class="swatches">
+    <div class="swatch"><div class="chip" style="background:#b8863b;"></div><div class="meta"><div class="name">Brass</div><div class="hex">#B8863B</div><div class="role">signature · rules</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#d4a85c;"></div><div class="meta"><div class="name">Brass light</div><div class="hex">#D4A85C</div><div class="role">on-navy text</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#7a5a22;"></div><div class="meta"><div class="name">Brass dark</div><div class="hex">#7A5A22</div><div class="role">brass text on light (AA)</div></div></div>
+  </div>
+  <p class="eyebrow">Surfaces &amp; text (warm)</p>
+  <div class="swatches">
+    <div class="swatch"><div class="chip" style="background:#faf8f4;"></div><div class="meta"><div class="name">Paper</div><div class="hex">#FAF8F4</div><div class="role">page bg</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#ffffff;"></div><div class="meta"><div class="name">Surface</div><div class="hex">#FFFFFF</div><div class="role">cards</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#f3efe8;"></div><div class="meta"><div class="name">Surface subtle</div><div class="hex">#F3EFE8</div><div class="role">inputs</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#e7e1d6;"></div><div class="meta"><div class="name">Border</div><div class="hex">#E7E1D6</div><div class="role">hairline</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#57534a;"></div><div class="meta"><div class="name">Text secondary</div><div class="hex">#57534A</div><div class="role">warm slate</div></div></div>
+  </div>
+  <p class="eyebrow">Signature gradients</p>
+  <div class="gradrow">
+    <div class="gradtile" style="background:linear-gradient(135deg,#c2933f,#8a6526);"><div class="gname">Brass CTA — primary action</div><div class="gval">135deg · #C2933F → #8A6526</div></div>
+    <div class="gradtile" style="background:linear-gradient(135deg,#0a1628 0%,#0d2137 55%,#0a1628 100%);"><div class="gname">Navy hero</div><div class="gval">matches briancline.co</div></div>
+  </div>
+</body>
+</html>
