@@ -1,0 +1,38 @@
+<!-- @dsCard group="Foundations" name="Typography" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BC Marine — Typography</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper:#faf8f4; --text:#0a1628; --text-secondary:#57534a; --text-muted:#8a857a; --brass-dark:#7a5a22; --border:#e7e1d6;
+      --font-display:'Space Grotesk',system-ui,sans-serif; --font-sans:'Inter',system-ui,sans-serif;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--text); font-family:var(--font-sans); padding:28px; }
+    h2 { font-family:var(--font-display); font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:var(--text-muted); margin:0 0 22px; }
+    .row { display:flex; align-items:baseline; gap:20px; padding:14px 0; border-bottom:1px dashed var(--border); }
+    .tag { flex:none; width:128px; font-family:var(--font-display); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); }
+    .d-display { font-family:var(--font-display); font-size:50px; font-weight:600; letter-spacing:-0.025em; line-height:1.05; }
+    .d-h2 { font-family:var(--font-display); font-size:32px; font-weight:600; letter-spacing:-0.02em; }
+    .d-h3 { font-family:var(--font-display); font-size:21px; font-weight:600; }
+    .d-bodylg { font-family:var(--font-sans); font-size:18px; font-weight:400; }
+    .d-body { font-family:var(--font-sans); font-size:15px; font-weight:400; color:var(--text-secondary); }
+    .d-label { font-family:var(--font-display); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.14em; color:var(--brass-dark); }
+  </style>
+</head>
+<body>
+  <h2>Typography — Space Grotesk + Inter</h2>
+  <div class="row"><span class="tag">Display / H1<br/>Grotesk 600</span><span class="d-display">Marine services on the Bay</span></div>
+  <div class="row"><span class="tag">H2<br/>Grotesk 600</span><span class="d-h2">Hull cleaning, done right</span></div>
+  <div class="row"><span class="tag">H3 / Card<br/>Grotesk 600</span><span class="d-h3">Subscription hull cleaning</span></div>
+  <div class="row"><span class="tag">Body large<br/>Inter 400</span><span class="d-bodylg">One captain you trust, on the water and at the dock.</span></div>
+  <div class="row"><span class="tag">Body<br/>Inter 400</span><span class="d-body">Wash, wax, brightwork, teak, and interior — sail and power. Serving marinas across San Francisco Bay.</span></div>
+  <div class="row"><span class="tag">Label / eyebrow<br/>Grotesk 600</span><span class="d-label">Get an instant estimate</span></div>
+</body>
+</html>

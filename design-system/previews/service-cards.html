@@ -1,0 +1,54 @@
+<!-- @dsCard group="Components" name="Service cards" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BC Marine — Service cards</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --brass-dark:#7a5a22; --paper:#faf8f4; --surface:#fff; --border:#e7e1d6; --border-strong:#d8d0c0;
+      --text:#0a1628; --text-secondary:#57534a; --text-muted:#8a857a;
+      --shadow-sm:0 1px 3px rgba(10,22,40,.07); --shadow-md:0 4px 12px rgba(10,22,40,.08);
+      --font-display:'Space Grotesk',system-ui,sans-serif; --font-sans:'Inter',system-ui,sans-serif;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--text); font-family:var(--font-sans); padding:28px; }
+    h2 { font-family:var(--font-display); font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:var(--text-muted); margin:0 0 22px; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; }
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:26px; box-shadow:var(--shadow-sm); transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+    .card:hover { transform:translateY(-3px); box-shadow:var(--shadow-md); border-color:var(--border-strong); }
+    .svc-icon { width:48px; height:48px; border-radius:12px; background:rgba(184,134,59,.13); color:var(--brass-dark); display:flex; align-items:center; justify-content:center; margin-bottom:18px; }
+    .svc-icon svg { width:24px; height:24px; }
+    .card h3 { font-family:var(--font-display); font-size:21px; font-weight:600; letter-spacing:-0.02em; margin:0 0 8px; }
+    .card p { margin:0 0 18px; color:var(--text-secondary); font-size:15px; }
+    .go { font-family:var(--font-display); display:inline-flex; align-items:center; gap:6px; font-size:14px; font-weight:600; color:var(--brass-dark); }
+  </style>
+</head>
+<body>
+  <h2>Cards &amp; service pattern</h2>
+  <div class="cards">
+    <div class="card">
+      <div class="svc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="3"></circle><line x1="12" y1="22" x2="12" y2="8"></line><path d="M5 12H2a10 10 0 0 0 20 0h-3"></path></svg></div>
+      <h3>Hull Cleaning</h3>
+      <p>Subscription hull cleaning, inspections, propeller service, and item recovery.</p>
+      <span class="go">Get an instant estimate &rarr;</span>
+    </div>
+    <div class="card">
+      <div class="svc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.8L19 9.7l-4.1 3.1L16 18l-4-2.8L8 18l1.1-5.2L5 9.7l5.1-1.9z"></path></svg></div>
+      <h3>Boat Detailing</h3>
+      <p>Wash, wax, brightwork, teak, and interior — sail and power.</p>
+      <span class="go">Get a quote &rarr;</span>
+    </div>
+    <div class="card">
+      <div class="svc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"></path><path d="M6 12v5c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-5"></path></svg></div>
+      <h3>Sailing Lessons</h3>
+      <p>Private lessons on SF Bay — docking to offshore passage making.</p>
+      <span class="go">Learn more &rarr;</span>
+    </div>
+  </div>
+</body>
+</html>

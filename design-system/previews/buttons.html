@@ -1,0 +1,45 @@
+<!-- @dsCard group="Components" name="Buttons" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BC Marine — Buttons</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy:#0a1628; --navy-3:#13294a; --cyan-deep:#00a5bb;
+      --brass-dark:#7a5a22; --grad-brass:linear-gradient(135deg,#c2933f,#8a6526);
+      --paper:#faf8f4; --surface:#fff; --surface-subtle:#f3efe8; --border-strong:#d8d0c0;
+      --text:#0a1628; --text-secondary:#57534a; --text-muted:#8a857a;
+      --shadow-sm:0 1px 3px rgba(10,22,40,.07);
+      --font-display:'Space Grotesk',system-ui,sans-serif; --font-sans:'Inter',system-ui,sans-serif;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--text); font-family:var(--font-sans); padding:28px; }
+    h2 { font-family:var(--font-display); font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:var(--text-muted); margin:0 0 22px; }
+    .btnrow { display:flex; flex-wrap:wrap; gap:14px; align-items:center; }
+    .btn { font-family:var(--font-display); font-weight:600; font-size:14px; padding:13px 22px; border-radius:8px; cursor:pointer; border:1px solid transparent; display:inline-flex; align-items:center; gap:8px; line-height:1; }
+    .btn-cta { background:var(--grad-brass); color:#fff; box-shadow:var(--shadow-sm); }
+    .btn-navy { background:var(--navy); color:#fff; box-shadow:var(--shadow-sm); }
+    .btn-secondary { background:var(--surface); color:var(--navy); border-color:var(--border-strong); }
+    .btn-ghost { background:transparent; color:var(--text-secondary); }
+    .link-cyan { font-family:var(--font-display); font-weight:600; font-size:14px; color:var(--cyan-deep); display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+    .note { margin-top:22px; background:var(--surface-subtle); border:1px solid #e7e1d6; border-radius:12px; padding:16px 18px; font-size:14px; color:var(--text-secondary); max-width:680px; }
+    .note strong { color:var(--navy); font-weight:600; }
+  </style>
+</head>
+<body>
+  <h2>Buttons</h2>
+  <div class="btnrow">
+    <button class="btn btn-cta">Get an instant estimate &rarr;</button>
+    <button class="btn btn-navy">Plan your delivery</button>
+    <button class="btn btn-secondary">Learn more</button>
+    <button class="btn btn-ghost">Cancel</button>
+    <a class="link-cyan" href="#">View pricing &rarr;</a>
+  </div>
+  <p class="note"><strong>Hierarchy:</strong> the brass gradient is the single highest-intent action per view — BC Marine's signature, kept rare. Navy solid is secondary, white + border tertiary. <strong>Cyan</strong> is the family "tell" — inline links and small accents only, never large fills.</p>
+</body>
+</html>

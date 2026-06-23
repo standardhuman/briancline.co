@@ -1,0 +1,54 @@
+<!-- @dsCard group="Components" name="Trust band & pills" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BC Marine — Trust band &amp; pills</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy:#0a1628; --cyan-deep:#00a5bb; --brass-light:#d4a85c; --brass-dark:#7a5a22;
+      --grad-brass:linear-gradient(135deg,#c2933f,#8a6526);
+      --paper:#faf8f4; --surface:#fff; --border-strong:#d8d0c0;
+      --text:#0a1628; --text-muted:#8a857a; --success:#1f9d57; --success-bg:#e9f6ee;
+      --shadow-xs:0 1px 2px rgba(10,22,40,.05); --shadow-lg:0 14px 34px rgba(10,22,40,.12);
+      --font-display:'Space Grotesk',system-ui,sans-serif; --font-sans:'Inter',system-ui,sans-serif;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--text); font-family:var(--font-sans); padding:28px; }
+    h2 { font-family:var(--font-display); font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:var(--text-muted); margin:0 0 22px; }
+    .trust { position:relative; overflow:hidden; background:var(--navy); color:#fff; border-radius:22px; padding:34px; display:flex; flex-wrap:wrap; gap:32px; align-items:center; justify-content:center; box-shadow:var(--shadow-lg); }
+    .trust::before { content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--grad-brass); }
+    .stat { text-align:center; }
+    .stat .n { font-family:var(--font-display); font-size:26px; font-weight:600; color:var(--brass-light); letter-spacing:-0.02em; }
+    .stat .l { font-size:12px; font-weight:500; color:rgba(255,255,255,.66); text-transform:uppercase; letter-spacing:.08em; margin-top:5px; }
+    .divider { width:1px; height:42px; background:rgba(255,255,255,.16); }
+    .pills { display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }
+    .pill { font-family:var(--font-display); font-size:12px; font-weight:600; padding:7px 14px; border-radius:999px; display:inline-flex; align-items:center; gap:6px; line-height:1; }
+    .pill-cred { background:var(--surface); border:1px solid var(--border-strong); color:var(--navy); box-shadow:var(--shadow-xs); }
+    .pill-brass { background:rgba(184,134,59,.13); color:var(--brass-dark); }
+    .pill-cyan { background:rgba(0,188,212,.12); color:var(--cyan-deep); }
+    .pill-success { background:var(--success-bg); color:var(--success); }
+  </style>
+</head>
+<body>
+  <h2>Trust band &amp; pills</h2>
+  <div class="trust">
+    <div class="stat"><div class="n">20 years</div><div class="l">on San Francisco Bay</div></div>
+    <div class="divider"></div>
+    <div class="stat"><div class="n">USCG Master</div><div class="l">Licensed Captain</div></div>
+    <div class="divider"></div>
+    <div class="stat"><div class="n">US Sailing</div><div class="l">Cruising Instructor</div></div>
+  </div>
+  <div class="pills">
+    <span class="pill pill-cred">USCG Licensed Master</span>
+    <span class="pill pill-cred">US Sailing Cruising Instructor</span>
+    <span class="pill pill-brass">Berkeley Marina</span>
+    <span class="pill pill-cyan">Instant estimate</span>
+    <span class="pill pill-success">Booking now</span>
+  </div>
+</body>
+</html>
