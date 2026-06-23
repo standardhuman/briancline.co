@@ -259,7 +259,7 @@ function OrderForm({ searchParams, navigate }) {
   const elements = useElements();
 
   // Pre-fill from URL params
-  const serviceKey = searchParams.get("service") || "recurring_cleaning";
+  const serviceKey = searchParams.get("service") || "cleaning";
   const initialLength = searchParams.get("length") || "";
   const initialType = searchParams.get("type") || "sailboat";
   const initialHull = searchParams.get("hull") || "monohull";
@@ -285,7 +285,10 @@ function OrderForm({ searchParams, navigate }) {
   const initialCustomerEmail = searchParams.get("customerEmail") || "";
   const initialCustomerPhone = searchParams.get("customerPhone") || "";
 
-  const service = SERVICES[serviceKey] || SERVICES.recurring_cleaning;
+  // Fall back to a REAL SERVICES key ('cleaning'); 'recurring_cleaning' is not a
+  // defined key, so `service` was undefined and `service.name` blank-screened the
+  // whole order form on the bare URL / any unknown service param.
+  const service = SERVICES[serviceKey] || SERVICES.cleaning;
 
   // Combine hull + type into a single boat type value
   const initialBoatType = `${initialHull}_${initialType}`;
