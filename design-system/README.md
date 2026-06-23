@@ -3,6 +3,15 @@
 The visual system for **briancline.co/marine** — Brian Cline's marine services on
 San Francisco Bay (hull cleaning, boat detailing, sailing lessons, vessel deliveries).
 
+## What BC Marine is
+
+BC Marine is a **vessel management company**. Brian is the licensed professional
+(USCG Licensed Master, US Sailing Cruising Instructor) who **directs the work** — in
+particular the diving (hull cleaning) and detailing — and stands behind the standard
+of care end to end. **Voice:** the captain who manages and directs your vessel's care,
+not a solo handyman or a faceless brand. Avoid "does every job himself / one person does
+it all" framing.
+
 ## Positioning: cousin, not twin
 
 BC Marine is its **own entity**, separate from SailorSkills even though both are Brian's.
