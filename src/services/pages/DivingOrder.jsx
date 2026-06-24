@@ -24,45 +24,24 @@ const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 // Server validates this matches an existing version before persisting consent.
 const TERMS_VERSION = "2026-05-01";
 
-// Common Bay Area marinas — surfaced via <datalist> to nudge customers
-// toward a recognized name. Free-typing is allowed; off-list marinas
-// are accepted with a manual-review flag on the server.
-const BAY_AREA_MARINAS = [
+// Berkeley-only service area: we only service boats berthed in Berkeley.
+// Surfaced via <datalist> to nudge customers toward a recognized name.
+// Keep in sync with isBerkeleyMarina() on the server (lead-validation.ts).
+const BERKELEY_MARINAS = [
   "Berkeley Marina",
-  "Emery Cove Yacht Harbor",
-  "Emeryville Marina",
-  "Marina Bay Yacht Harbor",
-  "Brickyard Cove Marina",
-  "Richmond Yacht Club",
-  "Grand Marina",
-  "Marina Village",
-  "Ballena Bay",
-  "Ballena Isle Marina",
-  "Alameda Marina",
-  "Pacific Marina",
-  "Oakland Yacht Club",
-  "Encinal Yacht Club",
-  "Jack London Square Marina",
-  "Embarcadero Cove",
-  "Pier 39 Marina",
-  "South Beach Harbor",
-  "San Francisco Marina",
-  "Gashouse Cove",
-  "Travis Marina",
-  "Sausalito Yacht Harbor",
-  "Schoonmaker Point Marina",
-  "Clipper Yacht Harbor",
-  "Kappas Marina",
-  "Loch Lomond Marina",
-  "Paradise Cay Yacht Harbor",
-  "Corinthian Yacht Club",
-  "Vallejo Yacht Club",
-  "Glen Cove Marina",
-  "Benicia Marina",
-  "Martinez Marina",
-  "Pittsburg Marina",
-  "Antioch Marina",
 ];
+
+// Mirror of the server-side isBerkeleyMarina() gate: the boat must be berthed
+// in Berkeley. Match any marina whose name contains "berkeley", plus any
+// explicit Berkeley berths whose name omits the word.
+const BERKELEY_MARINA_ALIASES = new Set([
+  // Add Berkeley berths here whose name does NOT contain "berkeley".
+]);
+const isBerkeleyMarina = (marina) => {
+  const n = (marina || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!n) return false;
+  return n.includes("berkeley") || BERKELEY_MARINA_ALIASES.has(n);
+};
 
 const BOAT_TYPES = [
   { value: "monohull_sailboat", label: "Monohull Sailboat", hull: "monohull", type: "sailboat" },
@@ -372,6 +351,10 @@ function OrderForm({ searchParams, navigate }) {
   const normalizedCustomer = (form.customerName || "").trim().toLowerCase().replace(/\s+/g, " ");
   const typedNameMatches = normalizedTyped.length > 0 && normalizedTyped === normalizedCustomer;
 
+  // Berkeley-only: the boat must be berthed in Berkeley (the marina field).
+  // Item recovery has no marina, so it's exempt. Mirrors the server gate.
+  const boatBerthOk = isItemRecovery || isBerkeleyMarina(form.marina);
+
   const canSubmit =
     form.customerName &&
     form.customerEmail &&
@@ -379,6 +362,7 @@ function OrderForm({ searchParams, navigate }) {
     form.billingCity &&
     form.billingState &&
     form.billingZip &&
+    boatBerthOk &&
     agreedToTerms &&
     agreedToCharge &&
     typedNameMatches &&
@@ -704,8 +688,8 @@ function OrderForm({ searchParams, navigate }) {
 
         {/* Boat Location (not for item recovery) */}
         {showBoatInfo && (
-          <SectionCard icon={MapPin} title="Boat Location" description="Where is your boat kept? (SF Bay Area only)">
-            <Field label="Marina">
+          <SectionCard icon={MapPin} title="Boat Location" description="Where is your boat kept? (Berkeley Marina only)">
+            <Field label="Marina" required>
               <Input
                 list="bay-area-marinas"
                 placeholder="Berkeley Marina"
@@ -713,11 +697,16 @@ function OrderForm({ searchParams, navigate }) {
                 onChange={(e) => updateField("marina", e.target.value)}
               />
               <datalist id="bay-area-marinas">
-                {BAY_AREA_MARINAS.map((m) => (
+                {BERKELEY_MARINAS.map((m) => (
                   <option key={m} value={m} />
                 ))}
               </datalist>
             </Field>
+            {form.marina && !isBerkeleyMarina(form.marina) && (
+              <p className="text-sm text-amber-700 mt-2">
+                We currently only service boats berthed in Berkeley Marina. If your boat is berthed in Berkeley, double-check the marina name — otherwise email <a className="underline" href="mailto:diving@briancline.co">diving@briancline.co</a> and we'll point you to our referral network.
+              </p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <Field label="Dock">
                 <Input placeholder="C" value={form.dock} onChange={(e) => updateField("dock", e.target.value)} />
@@ -996,6 +985,7 @@ function OrderForm({ searchParams, navigate }) {
           if (!form.billingCity) missing.push("City");
           if (!form.billingState) missing.push("State");
           if (!form.billingZip) missing.push("ZIP");
+          if (!boatBerthOk) missing.push("Boat berthed in Berkeley Marina");
           if (!cardState.numberComplete) missing.push("Card number");
           if (!cardState.expiryComplete) missing.push("Card expiration");
           if (!cardState.cvcComplete) missing.push("Card CVC");
