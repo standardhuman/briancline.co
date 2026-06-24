@@ -24,12 +24,6 @@ const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 // Server validates this matches an existing version before persisting consent.
 const TERMS_VERSION = "2026-05-01";
 
-// SF Bay Area ZIP3 prefixes — kept in sync with the server-side
-// allowlist in supabase/functions/_shared/lead-validation.ts.
-const BAY_AREA_ZIP3 = new Set([
-  "940","941","943","944","945","946","947","948","949","950","951","954",
-]);
-
 // Common Bay Area marinas — surfaced via <datalist> to nudge customers
 // toward a recognized name. Free-typing is allowed; off-list marinas
 // are accepted with a manual-review flag on the server.
@@ -356,19 +350,15 @@ function OrderForm({ searchParams, navigate }) {
   }, []);
   const cardError = cardErrors.number || cardErrors.expiry || cardErrors.cvc;
   const [turnstileToken, setTurnstileToken] = useState("");
-  const [zipError, setZipError] = useState(null);
 
   const updateField = useCallback((field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
-    if (field === "billingZip") setZipError(null);
   }, []);
 
   const estimateAmount = initialEstimate ? parseInt(initialEstimate) : null;
 
   const allCardComplete = cardState.numberComplete && cardState.expiryComplete && cardState.cvcComplete;
 
-  const zipDigits = (form.billingZip || "").replace(/\D/g, "");
-  const zipInBayArea = zipDigits.length >= 3 && BAY_AREA_ZIP3.has(zipDigits.slice(0, 3));
   const turnstileOk = !TURNSTILE_SITE_KEY || !!turnstileToken;
 
   // Recurring iff cleaning + non-one-time frequency. Drives the wording of the
@@ -389,7 +379,6 @@ function OrderForm({ searchParams, navigate }) {
     form.billingCity &&
     form.billingState &&
     form.billingZip &&
-    zipInBayArea &&
     agreedToTerms &&
     agreedToCharge &&
     typedNameMatches &&
@@ -428,11 +417,6 @@ function OrderForm({ searchParams, navigate }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canSubmit || !stripe || !elements) return;
-
-    if (!zipInBayArea) {
-      setZipError("We currently only serve the San Francisco Bay Area. Please double-check your billing ZIP.");
-      return;
-    }
 
     setIsSubmitting(true);
     setError(null);
@@ -774,14 +758,6 @@ function OrderForm({ searchParams, navigate }) {
               <Input placeholder="94107" value={form.billingZip} onChange={(e) => updateField("billingZip", e.target.value)} />
             </Field>
           </div>
-          {form.billingZip && !zipInBayArea && (
-            <p className="text-sm text-amber-700 mt-2">
-              Heads up: this ZIP isn't in our SF Bay Area service area. If your boat is berthed locally, double-check the ZIP — otherwise we can't take this order.
-            </p>
-          )}
-          {zipError && (
-            <p className="text-sm text-red-600 mt-2">{zipError}</p>
-          )}
 
           {/* Honeypot — keep this field empty. Bots that auto-fill every input will fail server validation. */}
           <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", top: "auto", width: "1px", height: "1px", overflow: "hidden" }}>
@@ -1020,7 +996,6 @@ function OrderForm({ searchParams, navigate }) {
           if (!form.billingCity) missing.push("City");
           if (!form.billingState) missing.push("State");
           if (!form.billingZip) missing.push("ZIP");
-          else if (!zipInBayArea) missing.push("ZIP in our service area (SF Bay)");
           if (!cardState.numberComplete) missing.push("Card number");
           if (!cardState.expiryComplete) missing.push("Card expiration");
           if (!cardState.cvcComplete) missing.push("Card CVC");
