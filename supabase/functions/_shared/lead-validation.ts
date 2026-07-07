@@ -29,14 +29,6 @@ export interface ValidationResult {
   requiresReview?: boolean
 }
 
-const BAY_AREA_ZIP3 = new Set([
-  '940','941','943','944','945','946','947','948','949','950','951','954',
-])
-
-const BAY_AREA_AREA_CODES = new Set([
-  '415','510','650','925','707','408','628','669',
-])
-
 export const DEFAULT_ALLOWED_MARINAS: string[] = [
   'berkeley marina','emery cove yacht harbor','emeryville marina',
   'marina bay','marina bay yacht harbor','brickyard cove marina',
@@ -56,6 +48,22 @@ function normalizeMarina(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+// Berkeley-only service area for diving / hull cleaning: we only accept boats
+// BERTHED in Berkeley (the marina field), regardless of billing address. Match
+// any marina whose name contains "berkeley" (Berkeley Marina, Berkeley Yacht
+// Club, …) plus any explicit Berkeley berths whose name omits the word.
+const BERKELEY_MARINAS = new Set<string>([
+  // Add Berkeley berths here whose name does NOT contain "berkeley", e.g.
+  // 'cal sailing club', 'olympic circle sailing'.
+])
+
+export function isBerkeleyMarina(marinaName: string | undefined): boolean {
+  const n = normalizeMarina(marinaName || '')
+  if (!n) return false
+  if (n.includes('berkeley')) return true
+  return BERKELEY_MARINAS.has(n)
+}
+
 function uniqueChars(s: string): number {
   return new Set(s.toLowerCase().replace(/[^a-z0-9]/g, '')).size
 }
@@ -65,42 +73,8 @@ function looksLikeJunkString(s: string): boolean {
   const cleaned = s.trim()
   if (cleaned.length < 3) return true
   if (uniqueChars(cleaned) <= 2) return true
-  if (/(.)\\1{3,}/.test(cleaned)) return true
+  if (/(.)\1{3,}/.test(cleaned)) return true
   return false
-}
-
-function digitsOnly(s: string): string {
-  return (s || '').replace(/\\D+/g, '')
-}
-
-function extractAreaCode(phone: string): string | null {
-  const digits = digitsOnly(phone)
-  if (digits.length === 10) return digits.slice(0, 3)
-  if (digits.length === 11 && digits.startsWith('1')) return digits.slice(1, 4)
-  return null
-}
-
-function zipPrefix3(zip: string): string | null {
-  const digits = digitsOnly(zip)
-  return digits.length >= 3 ? digits.slice(0, 3) : null
-}
-
-function inServiceArea(form: LeadFormData): { ok: boolean; reason?: string } {
-  const state = (form.billingState || '').trim().toUpperCase()
-  if (state && state !== 'CA') {
-    return { ok: false, reason: `state=${state}` }
-  }
-  const zip3 = zipPrefix3(form.billingZip || '')
-  const area = extractAreaCode(form.customerPhone || '')
-  const zipOk = zip3 ? BAY_AREA_ZIP3.has(zip3) : false
-  const areaOk = area ? BAY_AREA_AREA_CODES.has(area) : false
-  if (!zipOk && !areaOk) {
-    return { ok: false, reason: `zip3=${zip3 ?? 'none'} area=${area ?? 'none'}` }
-  }
-  if (zip3 && area && !zipOk && !areaOk) {
-    return { ok: false, reason: `zip3=${zip3} area=${area} both out-of-area` }
-  }
-  return { ok: true }
 }
 
 export interface MarinaCheck { matched: boolean; normalized: string }
@@ -159,13 +133,10 @@ export function validateLead(form: LeadFormData, opts: ValidateLeadOptions): Val
       && form.customerName.trim().length < 4) {
     return { ok: false, status: 400, error: 'Please provide your full name.' }
   }
-  const area = inServiceArea(form)
-  if (!area.ok) {
-    return {
-      ok: false, status: 400,
-      error: 'We currently only serve the San Francisco Bay Area. If your boat is berthed locally, please double-check your billing ZIP and phone number.',
-    }
-  }
+  // NOTE: service area is gated by the boat's marina (the Berkeley check below),
+  // NOT by the customer's billing address. Billing ZIP/state belong to the payment
+  // card and must pass through to Stripe untouched for AVS — gating on them blocked
+  // legitimate out-of-area cardholders whose boats berth in Berkeley.
   if (!opts.skipBoatAndMarina) {
     if (looksLikeJunkString(form.boatName || '')) {
       return { ok: false, status: 400, error: 'Please enter a valid boat name.' }
@@ -179,6 +150,14 @@ export function validateLead(form: LeadFormData, opts: ValidateLeadOptions): Val
     }
     if (looksLikeJunkString(form.marinaName || '')) {
       return { ok: false, status: 400, error: 'Please enter a valid marina.' }
+    }
+    // Berkeley-only: the boat must be berthed in Berkeley. Hard block otherwise —
+    // billing address is irrelevant; what matters is where the boat is.
+    if (!isBerkeleyMarina(form.marinaName)) {
+      return {
+        ok: false, status: 400,
+        error: "We currently only service boats berthed in Berkeley Marina. If your boat is berthed in Berkeley, double-check the marina name; for other locations, email diving@briancline.co and we'll point you to our referral network.",
+      }
     }
     const marinaCheck = checkMarina(form.marinaName, opts.allowedMarinas)
     if (!marinaCheck.matched) {

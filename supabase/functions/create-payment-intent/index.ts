@@ -90,6 +90,41 @@ async function loadAllowedMarinas(supabase: ReturnType<typeof createClient>): Pr
   }
 }
 
+// Resolve the servicing provider's auth.uid — which is `service_providers.owner_user_id`,
+// NOT `service_providers.id`. This is the dual-referent gotcha: service_orders.provider_id
+// and boats.provider_id key on the provider's owner_user_id (auth.uid), because that's
+// what Pro's provider-scoped queries filter on. Stamping the wrong id makes the order
+// invisible to every provider. Derive from context — never hardcode a UUID — so this
+// generalizes when more providers come online.
+async function resolveProviderOwnerUserId(
+  supabase: any,
+  payload: any,
+  formData: any,
+): Promise<string | null> {
+  // 1. Explicit provider context from the storefront. Accepts either the provider's
+  //    owner_user_id OR service_providers.id, and normalizes to owner_user_id.
+  const hint = payload?.providerId || payload?.provider_id || formData?.providerId || null
+  if (hint) {
+    const { data } = await supabase
+      .from('service_providers').select('owner_user_id')
+      .or(`owner_user_id.eq.${hint},id.eq.${hint}`)
+      .not('owner_user_id', 'is', null).limit(1).maybeSingle()
+    if (data?.owner_user_id) return data.owner_user_id as string
+  }
+  // 2. Deployment-level override (configuration, not a hardcoded UUID in the logic).
+  const envOwner = Deno.env.get('DEFAULT_PROVIDER_OWNER_USER_ID')
+  if (envOwner) return envOwner
+  // 3. Fall back to the sole active Pro provider. Correct while exactly one provider
+  //    backs this storefront; if more than one exists we return null so the caller
+  //    fails closed rather than guessing which provider owns the order.
+  const { data: active } = await supabase
+    .from('service_providers').select('owner_user_id')
+    .eq('pro_enabled', true).eq('is_active', true)
+    .not('owner_user_id', 'is', null).limit(2)
+  if (active && active.length === 1) return active[0].owner_user_id as string
+  return null
+}
+
 serve(async (req) => {
   const origin = req.headers.get('origin')
   const corsHeaders = getCorsHeaders(origin)
@@ -108,6 +143,15 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Missing formData' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
     }
+
+    // Canonicalize the one-time marker. The order form sends "one_time" (underscore)
+    // for one-time *cleaning* orders but the literal "one-time" (hyphen) for other
+    // one-time services. Every downstream recurring check below compares against
+    // "one-time", so without this an underscore one-time order is misread as
+    // recurring — creating a service_schedule, flipping auto_charge_enabled, and
+    // tagging it recurring_cleaning. Normalize once, here.
+    if (formData.serviceInterval === 'one_time') formData.serviceInterval = 'one-time'
+    if (formData.serviceDetails?.frequency === 'one_time') formData.serviceDetails.frequency = 'one-time'
 
     const rl = checkRateLimits(remoteIp, formData.customerEmail || null)
     if (!rl.ok) {
@@ -172,6 +216,17 @@ serve(async (req) => {
       .eq('version', auth.termsVersion).eq('document_type', 'tos').maybeSingle()
     if (!tosRow) {
       return new Response(JSON.stringify({ error: 'Terms version not recognized. Please refresh and try again.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+    }
+
+    // Resolve the servicing provider BEFORE any DB write and fail closed if we can't.
+    // A provider-less order (provider_id = NULL) is invisible to every provider in the
+    // Pro Orders queue, so it must never be created. This guard is the fix for the
+    // regression where card-on-file orders were stamped with provider_id = NULL.
+    const providerOwnerUserId = await resolveProviderOwnerUserId(supabase, payload, formData)
+    if (!providerOwnerUserId) {
+      console.error('[create-payment-intent] Could not resolve servicing provider; refusing to create a provider-unstamped order')
+      return new Response(JSON.stringify({ error: 'Could not determine the servicing provider for this order. Please try again or contact support.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
     }
 
@@ -254,8 +309,13 @@ serve(async (req) => {
     let boat = null
     if (formData.service !== 'Item Recovery') {
       const boatData: any = {
-        customer_id: customer.id, customer_name: formData.customerName,
+        customer_id: customer.id, provider_id: providerOwnerUserId,
+        customer_name: formData.customerName,
         customer_email: formData.customerEmail, customer_phone: formData.customerPhone,
+        // Populate owner_* / billing_email so the boat isn't orphaned (invisible in
+        // Pro's boat search, which requires provider_id + is_active + owner context).
+        owner_name: formData.customerName, owner_email: formData.customerEmail,
+        billing_email: formData.customerEmail,
         name: formData.boatName, make: formData.boatMake, model: formData.boatModel,
         length: parseInt(formData.boatLength) || 0, marina: formData.marinaName || null,
         dock: formData.dock || null, slip: formData.slipNumber || null, is_active: true,
@@ -283,9 +343,47 @@ serve(async (req) => {
       marina = marinaResult.data
     }
 
+    // Idempotency / double-submit guard. A confirmed double-submit created two identical
+    // orders ~20s apart (duplicate service_orders + order_authorizations + setup intents).
+    // Before creating a new order, look for a very-recent identical still-open order for
+    // this customer/boat/service/amount and, if found, return its existing setup intent
+    // instead of duplicating everything below. Customer/boat/address/marina above are all
+    // upserts/updates, so they don't duplicate; only what follows this point does.
+    {
+      const DEDUPE_WINDOW_MS = 2 * 60 * 1000
+      const since = new Date(Date.now() - DEDUPE_WINDOW_MS).toISOString()
+      let dupQuery = supabase.from('service_orders')
+        .select('id, order_number, stripe_setup_intent_id, requires_review')
+        .eq('customer_id', customer.id)
+        .eq('service_type', formData.service)
+        .eq('estimated_amount', formData.estimate)
+        .in('status', ['pending', 'pending_review'])
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(1)
+      dupQuery = boat?.id ? dupQuery.eq('boat_id', boat.id) : dupQuery.is('boat_id', null)
+      const { data: recentDup } = (await dupQuery.maybeSingle()) as { data: any }
+      if (recentDup?.stripe_setup_intent_id) {
+        try {
+          const existingIntent = await stripe.setupIntents.retrieve(recentDup.stripe_setup_intent_id)
+          if (existingIntent?.client_secret && existingIntent.status !== 'canceled') {
+            console.log(`[create-payment-intent] Idempotent reuse of recent order ${recentDup.order_number} (${recentDup.id})`)
+            return new Response(JSON.stringify({
+              clientSecret: existingIntent.client_secret, intentType: 'setup',
+              orderId: recentDup.id, orderNumber: recentDup.order_number,
+              requiresReview: recentDup.requires_review, deduped: true,
+            }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+          }
+        } catch (e) {
+          console.warn('[create-payment-intent] Could not reuse recent setup intent; creating a new order:', (e as Error).message)
+        }
+      }
+    }
+
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
     const orderData: any = {
-      order_number: orderNumber, customer_id: customer.id, boat_id: boat?.id || null,
+      order_number: orderNumber, provider_id: providerOwnerUserId,
+      customer_id: customer.id, boat_id: boat?.id || null,
       marina_id: marina?.id || null, dock: formData.dock || null, slip_number: formData.slipNumber || null,
       service_type: formData.service, service_interval: formData.serviceInterval || 'one-time',
       estimated_amount: formData.estimate, status: requiresReview ? 'pending_review' : 'pending',
