@@ -306,8 +306,8 @@ function EstimateCard({ estimate, boatLength, boatType, hullType, frequency, ser
             <div className="text-sm text-gray-600">
               <p className="font-medium text-gray-900 mb-1">About our pricing</p>
               <ul className="space-y-1 text-xs">
-                <li>• Heavy marine growth may add 50%</li>
-                <li>• Severe growth may add 100%+</li>
+                <li>• Heavy marine growth may add 50–75%</li>
+                <li>• Severe growth may add 100% (up to 200% in rare, extreme cases)</li>
                 <li>• Includes basic inspection report</li>
                 <li>• Before/after video included</li>
               </ul>
