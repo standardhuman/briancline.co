@@ -890,7 +890,7 @@ function OrderForm({ searchParams, navigate }) {
             </p>
 
             <ul className="text-sm text-gray-700 list-disc ml-5 space-y-1">
-              <li>Heavier marine growth than expected (+50% to +100%)</li>
+              <li>Heavier marine growth than expected (+50% to +100%, up to +200% in rare, extreme cases)</li>
               <li>Additional anode replacements needed (per-anode pricing)</li>
             </ul>
 
