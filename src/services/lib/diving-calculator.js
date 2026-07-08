@@ -69,7 +69,7 @@ const SEVERITY = {
   "MIN":   { label: "Minimal",          surcharge: 0 },
   "M-MOD": { label: "Minimal-Moderate", surcharge: 0 },
   "MOD":   { label: "Moderate",         surcharge: 0 },
-  "M-H":   { label: "Moderate-Heavy",   surcharge: 0.25 },
+  "M-H":   { label: "Moderate-Heavy",   surcharge: 0.375 },
   "H":     { label: "Heavy",            surcharge: 0.50 },
   "H-S":   { label: "Heavy-Severe",     surcharge: 0.75 },
   "S":     { label: "Severe",           surcharge: 1.00 },
