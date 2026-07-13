@@ -387,6 +387,15 @@ serve(async (req) => {
     let promoRedemptionId: string | null = null
     let promoApplied: { code: string; percentApplied: number } | null = null
     if (promoCode) {
+      // Current promo offers are recurring-only per Brian 2026-07-13 (WELCOME26 =
+      // 50% off the second cleaning; the one-time 25% variant was dropped). Gate
+      // before the RPC so a one-time order can never reserve a redemption.
+      if (formData.serviceInterval === 'one-time') {
+        return new Response(JSON.stringify({
+          error: 'That promo code applies to recurring cleaning plans only.',
+          promoError: 'promo_not_applicable',
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+      }
       const { data: promoData, error: promoRpcError } = await supabase.rpc('claim_service_promo', {
         p_code: promoCode,
         p_email: formData.customerEmail,
