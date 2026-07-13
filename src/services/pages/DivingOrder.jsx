@@ -838,7 +838,13 @@ function OrderForm({ searchParams, navigate }) {
                 value={form.promoCode}
                 onChange={(e) => {
                   updateField("promoCode", e.target.value);
-                  if (promoError) setPromoError(null);
+                  // promoError is only ever set by a promo-specific failure, so the
+                  // page-level error it suppresses holds the same stale message —
+                  // clear both or the banner reappears while the customer edits.
+                  if (promoError) {
+                    setPromoError(null);
+                    setError(null);
+                  }
                 }}
                 className={cn("uppercase", promoError && "border-red-400 focus-visible:ring-red-400")}
               />
