@@ -380,6 +380,40 @@ serve(async (req) => {
       }
     }
 
+    // Promo code claim. Placed after the dedupe block (so a deduped resubmit returns
+    // early above and never re-burns the once-per-customer redemption) and before the
+    // order is constructed, so a successful claim can be stamped onto orderData below.
+    const promoCode = typeof formData.promoCode === 'string' ? formData.promoCode.trim().slice(0, 64) : ''
+    let promoRedemptionId: string | null = null
+    let promoApplied: { code: string; percentApplied: number } | null = null
+    if (promoCode) {
+      const { data: promoData, error: promoRpcError } = await supabase.rpc('claim_service_promo', {
+        p_code: promoCode,
+        p_email: formData.customerEmail,
+        p_is_recurring: formData.serviceInterval !== 'one-time',
+      })
+      if (promoRpcError) {
+        return new Response(JSON.stringify({
+          error: 'We could not validate your promo code right now. Please remove the code and try again, or retry in a moment.',
+          promoError: 'rpc_failure',
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 })
+      }
+      const promoRow = Array.isArray(promoData) ? promoData[0] : promoData
+      if (promoRow?.error_code) {
+        const promoErrorMessages: Record<string, string> = {
+          invalid_code: "That promo code isn't valid.",
+          already_used: 'That promo code has already been used.',
+          expired: 'That promo code has expired.',
+        }
+        return new Response(JSON.stringify({
+          error: promoErrorMessages[promoRow.error_code] || 'That promo code could not be applied.',
+          promoError: promoRow.error_code,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+      }
+      promoRedemptionId = promoRow?.redemption_id ?? null
+      promoApplied = { code: promoCode.toUpperCase(), percentApplied: promoRow?.percent_applied }
+    }
+
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
     const orderData: any = {
       order_number: orderNumber, provider_id: providerOwnerUserId,
@@ -389,6 +423,9 @@ serve(async (req) => {
       estimated_amount: formData.estimate, status: requiresReview ? 'pending_review' : 'pending',
       service_details: formData.serviceDetails || null, notes: formData.customerNotes || null,
       requires_review: requiresReview,
+    }
+    if (promoRedemptionId) {
+      orderData.promo_redemption_id = promoRedemptionId
     }
     if (formData.service === 'Item Recovery') {
       orderData.metadata = {
@@ -484,6 +521,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       clientSecret, intentType, orderId: order.id, orderNumber, requiresReview,
+      ...(promoApplied ? { promoApplied } : {}),
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
   } catch (error: any) {
     console.error('Error:', error)

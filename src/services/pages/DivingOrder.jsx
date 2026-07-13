@@ -295,6 +295,7 @@ function OrderForm({ searchParams, navigate }) {
     billingZip: "",
     frequency: isCleaningService ? initialFrequency : "one_time",
     notes: "",
+    promoCode: "",
     // Item recovery fields
     recoveryLocation: "",
     itemDescription: "",
@@ -312,6 +313,7 @@ function OrderForm({ searchParams, navigate }) {
   const [typedName, setTypedName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  const [promoError, setPromoError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [cardState, setCardState] = useState({
     numberComplete: false,
@@ -343,6 +345,20 @@ function OrderForm({ searchParams, navigate }) {
   // Recurring iff cleaning + non-one-time frequency. Drives the wording of the
   // charge-authorization checkbox and whether we capture a recurring terms version.
   const isRecurring = isCleaningService && form.frequency !== "one_time";
+
+  // Optimistic promo preview — the real discount is validated + applied server-side
+  // by the billing engine at checkout. This line is a promise, not the price math;
+  // it must never alter estimateAmount or any displayed cost.
+  const promoPreview = (() => {
+    const code = form.promoCode.trim();
+    if (!code) return null;
+    if (code.toUpperCase() === "WELCOME26") {
+      return isRecurring
+        ? "WELCOME26 — 50% off your second cleaning"
+        : "WELCOME26 — 25% off your cleaning";
+    }
+    return "Code will be validated at checkout.";
+  })();
 
   // Typed-name match is intentionally case- and whitespace-insensitive — chargeback
   // defense doesn't need exact casing, just evidence the customer actively typed
@@ -404,6 +420,7 @@ function OrderForm({ searchParams, navigate }) {
 
     setIsSubmitting(true);
     setError(null);
+    setPromoError(null);
 
     try {
       const cardNumberElement = elements.getElement(CardNumberElement);
@@ -434,6 +451,7 @@ function OrderForm({ searchParams, navigate }) {
         estimate: estimateAmount || 0,
         service: service.name,
         billingZip: form.billingZip,
+        promoCode: form.promoCode.trim() ? form.promoCode.trim().toUpperCase() : "",
         websiteUrl: form.websiteUrl, // honeypot
         turnstileToken,
         serviceDetails: {
@@ -486,10 +504,11 @@ function OrderForm({ searchParams, navigate }) {
 
       if (!res.ok) {
         const errData = await res.json();
+        if (errData.promoError) setPromoError(errData.promoError);
         throw new Error(errData.error || "Failed to create payment intent");
       }
 
-      const { clientSecret, intentType, orderNumber } = await res.json();
+      const { clientSecret, intentType, orderNumber, promoApplied } = await res.json();
 
       const billingDetails = {
         name: form.customerName,
@@ -517,7 +536,7 @@ function OrderForm({ searchParams, navigate }) {
 
       if (result.error) throw result.error;
 
-      setSuccess({ orderNumber });
+      setSuccess({ orderNumber, promoApplied });
     } catch (err) {
       console.error("Order submission error:", err);
       setError(err.message || "Something went wrong. Please try again.");
@@ -539,6 +558,12 @@ function OrderForm({ searchParams, navigate }) {
           <p className="text-lg font-medium mb-2">
             Order Number: <span className="font-mono bg-gray-100 px-3 py-1 rounded">{success.orderNumber}</span>
           </p>
+          {success.promoApplied && (
+            <p className="text-sm font-medium text-[#0073a8] mb-2">
+              Promo applied: {success.promoApplied.code} — {success.promoApplied.percentApplied}% off{" "}
+              {success.promoApplied.percentApplied === 50 ? "your second cleaning" : "your cleaning"}
+            </p>
+          )}
           <p className="text-gray-500 text-sm mb-8">
             Your card is securely saved and will be charged after service completion.
             You'll receive a confirmation email shortly.
@@ -804,6 +829,22 @@ function OrderForm({ searchParams, navigate }) {
                 value={form.notes}
                 onChange={(e) => updateField("notes", e.target.value)}
               />
+            </Field>
+          </div>
+          <div className="mt-4">
+            <Field label="Promo Code">
+              <Input
+                placeholder="WELCOME26"
+                value={form.promoCode}
+                onChange={(e) => {
+                  updateField("promoCode", e.target.value);
+                  if (promoError) setPromoError(null);
+                }}
+                className={cn("uppercase", promoError && "border-red-400 focus-visible:ring-red-400")}
+              />
+              {promoPreview && (
+                <p className="mt-1 text-xs text-[#0073a8]">{promoPreview}</p>
+              )}
             </Field>
           </div>
         </SectionCard>
