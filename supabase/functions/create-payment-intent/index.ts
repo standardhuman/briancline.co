@@ -399,6 +399,14 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 })
       }
       const promoRow = Array.isArray(promoData) ? promoData[0] : promoData
+      if (!promoRow) {
+        // Malformed/zero-row RPC response. Treat like a transport failure rather than
+        // silently falling through to a false "success" with no redemption stamped.
+        return new Response(JSON.stringify({
+          error: 'We could not validate your promo code right now. Please remove the code and try again, or retry in a moment.',
+          promoError: 'rpc_failure',
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 })
+      }
       if (promoRow?.error_code) {
         const promoErrorMessages: Record<string, string> = {
           invalid_code: "That promo code isn't valid.",

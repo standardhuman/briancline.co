@@ -504,7 +504,7 @@ function OrderForm({ searchParams, navigate }) {
 
       if (!res.ok) {
         const errData = await res.json();
-        if (errData.promoError) setPromoError(errData.promoError);
+        if (errData.promoError) setPromoError(errData.error);
         throw new Error(errData.error || "Failed to create payment intent");
       }
 
@@ -842,8 +842,12 @@ function OrderForm({ searchParams, navigate }) {
                 }}
                 className={cn("uppercase", promoError && "border-red-400 focus-visible:ring-red-400")}
               />
-              {promoPreview && (
-                <p className="mt-1 text-xs text-[#0073a8]">{promoPreview}</p>
+              {promoError ? (
+                <p className="mt-1 text-xs text-red-600">{promoError}</p>
+              ) : (
+                promoPreview && (
+                  <p className="mt-1 text-xs text-[#0073a8]">{promoPreview}</p>
+                )
               )}
             </Field>
           </div>
@@ -1001,8 +1005,9 @@ function OrderForm({ searchParams, navigate }) {
           </div>
         </SectionCard>
 
-        {/* Error */}
-        {error && (
+        {/* Error — suppressed for promo-specific failures, which render inline
+            next to the promo field instead of duplicating the message here. */}
+        {error && !promoError && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
             <div>
