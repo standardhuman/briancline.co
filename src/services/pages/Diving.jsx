@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -224,6 +224,7 @@ function InputCard({ icon: Icon, title, description, children, visible = true })
 // ── Estimate Card ──
 function EstimateCard({ estimate, boatLength, boatType, hullType, frequency, serviceKey, propellerCount, paintAge, lastCleaned, anodeCount }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const service = SERVICES[serviceKey];
 
   const handleGetStarted = () => {
@@ -240,6 +241,11 @@ function EstimateCard({ estimate, boatLength, boatType, hullType, frequency, ser
       lastCleaned,
       anodes: String(anodeCount),
     });
+    // Carry a promo code through from the landing-page entry point (e.g.
+    // sailorskills.com/new → /hull-cleaning?promo=WELCOME26) so it survives
+    // into the order form without the customer re-entering it.
+    const promo = searchParams.get("promo");
+    if (promo) params.set("promo", promo);
     navigate(`/hull-cleaning/order?${params.toString()}`);
   };
 
