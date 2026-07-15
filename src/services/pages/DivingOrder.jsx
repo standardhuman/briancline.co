@@ -257,6 +257,7 @@ function OrderForm({ searchParams, navigate }) {
   const initialCustomerName = searchParams.get("customerName") || "";
   const initialCustomerEmail = searchParams.get("customerEmail") || "";
   const initialCustomerPhone = searchParams.get("customerPhone") || "";
+  const initialPromoCode = (searchParams.get("promo") || "").toUpperCase().trim();
 
   // Fall back to a REAL SERVICES key ('cleaning'); 'recurring_cleaning' is not a
   // defined key, so `service` was undefined and `service.name` blank-screened the
@@ -295,7 +296,7 @@ function OrderForm({ searchParams, navigate }) {
     billingZip: "",
     frequency: isCleaningService ? initialFrequency : "one_time",
     notes: "",
-    promoCode: "",
+    promoCode: initialPromoCode,
     // Item recovery fields
     recoveryLocation: "",
     itemDescription: "",
@@ -349,14 +350,14 @@ function OrderForm({ searchParams, navigate }) {
   // Optimistic promo preview — the real discount is validated + applied server-side
   // by the billing engine at checkout. This line is a promise, not the price math;
   // it must never alter estimateAmount or any displayed cost.
-  // WELCOME26 is recurring-only (50% off the second cleaning) — no one-time variant.
+  // WELCOME26 is recurring-only ($75 off the first cleaning) — no one-time variant.
   const promoIsWelcome26NotApplicable = form.promoCode.trim().toUpperCase() === "WELCOME26" && !isRecurring;
   const promoPreview = (() => {
     const code = form.promoCode.trim();
     if (!code) return null;
     if (code.toUpperCase() === "WELCOME26") {
       return isRecurring
-        ? "WELCOME26 — 50% off your second cleaning"
+        ? "WELCOME26 — $75 off your first cleaning"
         : "WELCOME26 applies to recurring cleaning plans only.";
     }
     return "Code will be validated at checkout.";
@@ -566,7 +567,7 @@ function OrderForm({ searchParams, navigate }) {
             <p className="text-sm font-medium text-[#0073a8] mb-2">
               Promo applied: {success.promoApplied.code} —{" "}
               {success.promoApplied.percentApplied === 50
-                ? "50% off your second cleaning"
+                ? "$75 off your first cleaning"
                 : `${success.promoApplied.percentApplied}% off`}
             </p>
           )}
