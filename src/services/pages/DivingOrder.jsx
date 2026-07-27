@@ -8,8 +8,9 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
 import { cn, formatCurrency } from "../lib/utils";
-import { SERVICES } from "../lib/diving-calculator";
+import { SERVICES, conditionPriceRange } from "../lib/diving-calculator";
 import PageMeta from "../components/PageMeta";
+import ConditionsPricing from "../components/ConditionsPricing";
 import {
   Ship, MapPin, User, Wrench, CreditCard, ArrowRight, Loader2,
   CheckCircle2, AlertCircle, Anchor, Calendar
@@ -346,6 +347,27 @@ function OrderForm({ searchParams, navigate }) {
   // Recurring iff cleaning + non-one-time frequency. Drives the wording of the
   // charge-authorization checkbox and whether we capture a recurring terms version.
   const isRecurring = isCleaningService && form.frequency !== "one_time";
+
+  // Conditions-based price range for the explainer panel. Recomputed live from
+  // the editable form fields (length, boat type, frequency) plus the paint-age /
+  // last-cleaned hints carried in the URL. paintAge/lastCleaned aren't form
+  // fields here, so an organic visitor arrives without them — conditionPriceRange
+  // then drops the prediction and shows the full Light–Severe span. If the length
+  // is missing/invalid it returns null and the panel omits itself.
+  const selectedType = BOAT_TYPES.find((t) => t.value === form.boatType);
+  const conditionRange = isCleaningService
+    ? conditionPriceRange({
+        serviceKey: "cleaning",
+        boatLength: form.boatLength,
+        boatType: selectedType?.type || initialType,
+        hullType: selectedType?.hull || initialHull,
+        frequency: form.frequency === "one_time" ? "onetime" : form.frequency,
+        propellerCount: parseInt(initialPropellers, 10) || 1,
+        paintAge: initialPaintAge,
+        lastCleaned: initialLastCleaned,
+        anodeCount: parseInt(initialAnodes, 10) || 0,
+      })
+    : null;
 
   // Optimistic promo preview — the real discount is validated + applied server-side
   // by the billing engine at checkout. This line is a promise, not the price math;
@@ -828,6 +850,15 @@ function OrderForm({ searchParams, navigate }) {
               </p>
             )}
           </div>
+
+          {/* Conditions-based pricing — the estimate above is the starting point;
+              the final charge depends on the growth found at service time. */}
+          {conditionRange && (
+            <div className="mt-4 rounded-lg border border-gray-100 bg-white p-4">
+              <ConditionsPricing range={conditionRange} />
+            </div>
+          )}
+
           <div className="mt-4">
             <Field label="Additional Notes">
               <Textarea
