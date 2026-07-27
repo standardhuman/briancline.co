@@ -275,4 +275,131 @@ export function calculateEstimate({
   };
 }
 
+// ── Public-facing hull-condition tiers ─────────────────────────────────────
+// The internal fouling matrix has eight severity codes with fine-grained
+// surcharges. For customer-facing display we collapse them onto four plain
+// tiers a boat owner can reason about. Light and Moderate are both 0% growth
+// (they price identically) and are shown together as "Light–Moderate". These
+// surcharges are a strict subset of the SEVERITY table above — no new rates.
+export const CONDITION_TIERS = [
+  { key: "light",    label: "Light",    surcharge: 0 },
+  { key: "moderate", label: "Moderate", surcharge: 0 },
+  { key: "heavy",    label: "Heavy",    surcharge: 0.50 },
+  { key: "severe",   label: "Severe",   surcharge: 1.00 },
+];
+
+// Which display tier a predicted matrix severity lands in. The in-between
+// matrix codes (M-H 37.5%, H-S 75%, and the rare Severe-Maximum 200%) round to
+// the nearest plain tier so we can point the customer at one expected condition.
+const SEVERITY_TO_TIER = {
+  "MIN": 0, "M-MOD": 1, "MOD": 1, "M-H": 2, "H": 2, "H-S": 3, "S": 3, "SEV": 3,
+};
+
+/**
+ * Build the conditions-based price range for a hull cleaning. Returns null for
+ * any non-cleaning service (nothing else carries a growth surcharge) or an
+ * unusable boat length. The math mirrors calculateEstimate exactly: growth is
+ * the only axis that varies, applied as a percentage of the base rate on top of
+ * the fixed base + boat-type/prop/anode charges. No new rates are introduced.
+ *
+ * When paintAge/lastCleaned identify a matrix cell, `predictedTier` is the
+ * expected condition and rangeLow/rangeHigh span that tier ± one tier. When
+ * they don't (e.g. an organic visitor with no condition inputs), there is no
+ * prediction and the range spans the full Light–Severe ladder.
+ */
+export function conditionPriceRange({
+  serviceKey = "cleaning",
+  boatLength = 35,
+  boatType = "sailboat",
+  hullType = "monohull",
+  frequency = "monthly",
+  propellerCount = 1,
+  paintAge = "<6mo",
+  lastCleaned = "<2",
+  anodeCount = 0,
+} = {}) {
+  if (serviceKey !== "cleaning") return null;
+
+  const len = parseInt(boatLength, 10);
+  if (!len || len < 1) return null;
+
+  // Everything except growth, computed once by forcing the cleanest matrix cell
+  // (Minimal = 0% growth). `base` is the amount the growth percentage applies to.
+  const clean = calculateEstimate({
+    serviceKey, boatLength: len, boatType, hullType, frequency,
+    propellerCount, paintAge: "<6mo", lastCleaned: "<2", anodeCount,
+  });
+  const base = clean.rate * len;
+  const subtotalNoGrowth = clean.subtotal;
+
+  const tiers = CONDITION_TIERS.map((tier) => {
+    const subtotal = subtotalNoGrowth + base * tier.surcharge;
+    const minimumApplied = subtotal > 0 && subtotal < RATES.minimum;
+    return {
+      key: tier.key,
+      label: tier.label,
+      surcharge: tier.surcharge,
+      total: minimumApplied ? RATES.minimum : subtotal,
+      minimumApplied,
+    };
+  });
+
+  const hasPrediction =
+    PAINT_COLS.includes(paintAge) &&
+    Object.prototype.hasOwnProperty.call(MATRIX, lastCleaned);
+  const fouling = hasPrediction ? lookupFouling(paintAge, lastCleaned) : null;
+  const predictedIndex = hasPrediction ? (SEVERITY_TO_TIER[fouling.severity] ?? 1) : null;
+
+  const lowIndex = predictedIndex == null ? 0 : Math.max(0, predictedIndex - 1);
+  const highIndex = predictedIndex == null
+    ? CONDITION_TIERS.length - 1
+    : Math.min(CONDITION_TIERS.length - 1, predictedIndex + 1);
+
+  return {
+    tiers,
+    isOneTime: clean.isOneTime,
+    hasPrediction,
+    fouling,
+    predictedIndex,
+    predictedTier: predictedIndex == null ? null : tiers[predictedIndex],
+    lowIndex,
+    highIndex,
+    rangeLow: tiers[lowIndex].total,
+    rangeHigh: tiers[highIndex].total,
+  };
+}
+
+/**
+ * Collapse the four condition tiers into display rows, merging adjacent tiers
+ * that share a surcharge (Light + Moderate, both 0%) into one labeled row so
+ * the customer never sees two identically-priced rows. Returns rows in
+ * ascending price, each carrying the tier keys it represents.
+ */
+export function conditionDisplayRows(tiers) {
+  const rows = [];
+  for (const tier of tiers) {
+    const last = rows[rows.length - 1];
+    if (last && last.surcharge === tier.surcharge) {
+      last.keys.push(tier.key);
+      last.labelHigh = tier.label;
+    } else {
+      rows.push({
+        keys: [tier.key],
+        labelLow: tier.label,
+        labelHigh: tier.label,
+        surcharge: tier.surcharge,
+        total: tier.total,
+        minimumApplied: tier.minimumApplied,
+      });
+    }
+  }
+  return rows.map((r) => ({
+    keys: r.keys,
+    label: r.labelLow === r.labelHigh ? r.labelLow : `${r.labelLow}–${r.labelHigh}`,
+    surcharge: r.surcharge,
+    total: r.total,
+    minimumApplied: r.minimumApplied,
+  }));
+}
+
 export { RATES };

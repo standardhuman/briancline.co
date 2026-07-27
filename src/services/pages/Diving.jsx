@@ -5,10 +5,11 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "../components/ui/accordion";
 import { cn, formatCurrency } from "../lib/utils";
-import { calculateEstimate, RATES, SERVICES, SERVICE_VISIBILITY } from "../lib/diving-calculator";
+import { calculateEstimate, conditionPriceRange, conditionDisplayRows, RATES, SERVICES, SERVICE_VISIBILITY } from "../lib/diving-calculator";
 import PageMeta from "../components/PageMeta";
 import JsonLd from "../components/JsonLd";
 import OptImage from "../components/OptImage";
+import ConditionsPricing from "../components/ConditionsPricing";
 import {
   Ruler, Ship, Sailboat, CalendarDays, Paintbrush, Clock, Wrench,
   Calculator, ListChecks, CheckCircle2, HelpCircle, ArrowRight, Info, Anchor,
@@ -227,6 +228,13 @@ function EstimateCard({ estimate, boatLength, boatType, hullType, frequency, ser
   const [searchParams] = useSearchParams();
   const service = SERVICES[serviceKey];
 
+  // Conditions-based range: what the cleaning would cost across growth levels,
+  // built from the same inputs the estimate uses. Null for non-cleaning services.
+  const range = conditionPriceRange({
+    serviceKey, boatLength: parseInt(boatLength, 10) || 1, boatType, hullType,
+    frequency, propellerCount, paintAge, lastCleaned, anodeCount,
+  });
+
   const handleGetStarted = () => {
     const freqParam = frequency === "onetime" ? "one_time" : frequency;
     const params = new URLSearchParams({
@@ -304,6 +312,15 @@ function EstimateCard({ estimate, boatLength, boatType, hullType, frequency, ser
         </CardContent>
       </Card>
 
+      {/* Conditions-based pricing — what the final charge depends on */}
+      {range && (
+        <Card className="mt-4 border-gray-100 shadow-sm">
+          <CardContent className="p-4">
+            <ConditionsPricing range={range} />
+          </CardContent>
+        </Card>
+      )}
+
       {/* About our pricing */}
       <Card className="mt-4 border-gray-100 shadow-sm">
         <CardContent className="p-4">
@@ -312,8 +329,6 @@ function EstimateCard({ estimate, boatLength, boatType, hullType, frequency, ser
             <div className="text-sm text-gray-600">
               <p className="font-medium text-gray-900 mb-1">About our pricing</p>
               <ul className="space-y-1 text-xs">
-                <li>• Heavy marine growth may add 50–75%</li>
-                <li>• Severe growth may add 100% (up to 200% in rare, extreme cases)</li>
                 <li>• Includes basic inspection report</li>
                 <li>• Before/after video included</li>
               </ul>
