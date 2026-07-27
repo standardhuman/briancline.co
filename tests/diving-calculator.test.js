@@ -68,13 +68,13 @@ describe('Service Visibility', () => {
 
 describe('Rates', () => {
   it('should have correct base rates', () => {
-    expect(RATES.recurring).toBe(4.49);
-    expect(RATES.onetime).toBe(5.99);
+    expect(RATES.recurring).toBe(4.50);
+    expect(RATES.onetime).toBe(6.00);
     expect(RATES.inspection).toBe(3.99);
     expect(RATES.itemRecovery).toBe(149);
     expect(RATES.propellerService).toBe(349);
-    expect(RATES.anodesOnlyMin).toBe(149);
-    expect(RATES.minimum).toBe(149);
+    expect(RATES.anodesOnlyMin).toBe(99);
+    expect(RATES.minimum).toBe(150);
     expect(RATES.anode).toBe(15);
   });
 });
@@ -104,7 +104,7 @@ describe('Fouling Lookup', () => {
     // <6mo paint, 7-8 months since cleaning — null in matrix, should use next non-null
     const result = lookupFouling('<6mo', '7-8');
     expect(result.severity).toBe('M-H');
-    expect(result.surcharge).toBe(0.25);
+    expect(result.surcharge).toBe(0.375);
   });
 
   it('should return SEV for unknown paint age', () => {
@@ -181,22 +181,22 @@ describe('Propeller Service', () => {
 });
 
 describe('Anodes Only', () => {
-  it('should have $149 minimum', () => {
+  it('should have $150 minimum', () => {
     const est = calculateEstimate({ serviceKey: 'anodes_only', anodeCount: 0 });
-    expect(est.total).toBe(149);
+    expect(est.total).toBe(150);
     expect(est.minimumApplied).toBe(true);
   });
 
-  it('should apply minimum when anode cost is below $149', () => {
-    // 5 * $15 = $75 < $149 minimum, so minimum applies
+  it('should apply minimum when anode cost is below $150', () => {
+    // 5 * $15 = $75 < $150 minimum, so minimum applies
     const est = calculateEstimate({ serviceKey: 'anodes_only', anodeCount: 5 });
-    expect(est.total).toBe(149);
+    expect(est.total).toBe(150);
     expect(est.minimumApplied).toBe(true);
   });
 
-  it('should exceed minimum with enough anodes', () => {
+  it('should meet the minimum exactly with 10 anodes', () => {
     const est = calculateEstimate({ serviceKey: 'anodes_only', anodeCount: 10 });
-    expect(est.total).toBe(150); // 10 * 15 = 150 > 149
+    expect(est.total).toBe(150); // 10 * 15 = 150, exactly the $150 minimum
     expect(est.minimumApplied).toBe(false);
   });
 });
@@ -204,7 +204,7 @@ describe('Anodes Only', () => {
 // ── Per-Foot Services ──
 
 describe('Cleaning - Base Rates', () => {
-  it('monthly recurring should use $4.49/ft', () => {
+  it('monthly recurring should use $4.50/ft', () => {
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 35,
@@ -216,32 +216,32 @@ describe('Cleaning - Base Rates', () => {
       lastCleaned: '<2',
       anodeCount: 0,
     });
-    expect(est.rate).toBe(4.49);
-    expect(est.items[0].amount).toBeCloseTo(4.49 * 35);
+    expect(est.rate).toBe(4.50);
+    expect(est.items[0].amount).toBeCloseTo(4.50 * 35);
     expect(est.isOneTime).toBe(false);
   });
 
-  it('bimonthly recurring should use $4.49/ft', () => {
+  it('bimonthly recurring should use $4.50/ft', () => {
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 35,
       frequency: 'bimonthly',
     });
-    expect(est.rate).toBe(4.49);
+    expect(est.rate).toBe(4.50);
     expect(est.isOneTime).toBe(false);
   });
 
-  it('quarterly recurring should use $4.49/ft', () => {
+  it('quarterly recurring should use $4.50/ft', () => {
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 35,
       frequency: 'quarterly',
     });
-    expect(est.rate).toBe(4.49);
+    expect(est.rate).toBe(4.50);
     expect(est.isOneTime).toBe(false);
   });
 
-  it('one-time should use $5.99/ft', () => {
+  it('one-time should use $6.00/ft', () => {
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 35,
@@ -253,14 +253,14 @@ describe('Cleaning - Base Rates', () => {
       lastCleaned: '<2',
       anodeCount: 0,
     });
-    expect(est.rate).toBe(5.99);
+    expect(est.rate).toBe(6.00);
     expect(est.isOneTime).toBe(true);
   });
 
-  it('should enforce $149 minimum', () => {
+  it('should enforce $150 minimum', () => {
     const est = calculateEstimate({
       serviceKey: 'cleaning',
-      boatLength: 15, // 15 * 4.49 = 67.35
+      boatLength: 15, // 15 * 4.50 = 67.50
       frequency: 'monthly',
       boatType: 'sailboat',
       hullType: 'monohull',
@@ -269,7 +269,7 @@ describe('Cleaning - Base Rates', () => {
       lastCleaned: '<2',
       anodeCount: 0,
     });
-    expect(est.total).toBe(149);
+    expect(est.total).toBe(150);
     expect(est.minimumApplied).toBe(true);
   });
 });
@@ -288,11 +288,11 @@ describe('Cleaning - Boat Type Surcharges', () => {
       anodeCount: 0,
     });
     expect(est.items.length).toBe(1); // Only base rate
-    expect(est.total).toBeCloseTo(4.49 * 40);
+    expect(est.total).toBeCloseTo(4.50 * 40);
   });
 
   it('powerboat should add 25% surcharge', () => {
-    const base = 4.49 * 40;
+    const base = 4.50 * 40;
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 40,
@@ -329,7 +329,7 @@ describe('Cleaning - Hull Type Surcharges', () => {
   });
 
   it('catamaran should add 25% surcharge', () => {
-    const base = 4.49 * 40;
+    const base = 4.50 * 40;
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 40,
@@ -347,7 +347,7 @@ describe('Cleaning - Hull Type Surcharges', () => {
   });
 
   it('trimaran should add 50% surcharge', () => {
-    const base = 4.49 * 40;
+    const base = 4.50 * 40;
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 40,
@@ -367,7 +367,7 @@ describe('Cleaning - Hull Type Surcharges', () => {
 
 describe('Cleaning - Combined Surcharges', () => {
   it('powerboat + catamaran should stack surcharges', () => {
-    const base = 4.49 * 40;
+    const base = 4.50 * 40;
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 40,
@@ -384,7 +384,7 @@ describe('Cleaning - Combined Surcharges', () => {
   });
 
   it('powerboat + trimaran should stack surcharges', () => {
-    const base = 4.49 * 40;
+    const base = 4.50 * 40;
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 40,
@@ -418,7 +418,7 @@ describe('Cleaning - Propeller Surcharges', () => {
   });
 
   it('2 propellers should add 10%', () => {
-    const base = 4.49 * 40;
+    const base = 4.50 * 40;
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 40,
@@ -436,7 +436,7 @@ describe('Cleaning - Propeller Surcharges', () => {
   });
 
   it('3 propellers should add 20%', () => {
-    const base = 4.49 * 40;
+    const base = 4.50 * 40;
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 40,
@@ -453,7 +453,7 @@ describe('Cleaning - Propeller Surcharges', () => {
   });
 
   it('4 propellers should add 30%', () => {
-    const base = 4.49 * 40;
+    const base = 4.50 * 40;
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 40,
@@ -489,7 +489,7 @@ describe('Cleaning - Growth Surcharges', () => {
   });
 
   it('heavy growth adds 50%', () => {
-    const base = 4.49 * 40;
+    const base = 4.50 * 40;
     const est = calculateEstimate({
       serviceKey: 'cleaning',
       boatLength: 40,
@@ -751,7 +751,7 @@ describe('Edge Cases', () => {
       lastCleaned: '<2',
       anodeCount: 0,
     });
-    expect(est.total).toBeCloseTo(4.49 * 150);
+    expect(est.total).toBeCloseTo(4.50 * 150);
   });
 
   it('should handle all surcharges stacked together', () => {
@@ -766,13 +766,13 @@ describe('Edge Cases', () => {
       lastCleaned: '24+',
       anodeCount: 10,
     });
-    // base: 5.99 * 50 = 299.50
-    // powerboat: +25% = 74.875
-    // trimaran: +50% = 149.75
-    // 3 additional props: +30% = 89.85
-    // SEV growth: +200% = 599.00
+    // base: 6.00 * 50 = 300.00
+    // powerboat: +25% = 75.00
+    // trimaran: +50% = 150.00
+    // 3 additional props: +30% = 90.00
+    // SEV growth: +200% = 600.00
     // anodes: 10 * 15 = 150
-    // total: 299.50 + 74.875 + 149.75 + 89.85 + 599.00 + 150 = 1362.975
+    // total: 300 + 75 + 150 + 90 + 600 + 150 = 1365.00
     expect(est.total).toBeGreaterThan(1000);
     expect(est.items.length).toBeGreaterThanOrEqual(5);
   });
