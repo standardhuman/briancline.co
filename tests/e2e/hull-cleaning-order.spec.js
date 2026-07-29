@@ -235,6 +235,39 @@ test.describe('Hull Cleaning Order Form', () => {
     await expect(scale.getByText(/Our estimate:/)).toHaveCount(0);
     await expect(scale.getByText(/minimal growth/)).toBeVisible();
   });
+
+  test('with NO frequency param: nothing preselected, must choose, badge + reassurance shown', async ({ page }) => {
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&estimate=189`);
+    await page.waitForSelector('text=Schedule');
+
+    // No frequency button is preselected (no silent monthly default).
+    const freqButtons = page.getByRole('button').filter({ hasText: /^(Monthly|Every 2 Months|Every 3 Months|One-Time)$/ });
+    await expect(freqButtons).toHaveCount(4);
+    // "Most popular" badge on the bi-monthly option, and the unsure reassurance.
+    await expect(page.getByText('Most popular')).toBeVisible();
+    await expect(page.getByText('We can start at two months and evaluate after the first service.')).toBeVisible();
+
+    // Submit is blocked and the missing-fields callout names the frequency.
+    await expect(page.getByRole('button', { name: /Authorize & Save Card/ })).toBeDisabled();
+    await expect(page.getByText('Service frequency')).toBeVisible();
+
+    // Choosing a frequency clears the reassurance and the missing-field entry.
+    await page.getByRole('button', { name: 'Every 2 Months', exact: true }).click();
+    await expect(page.getByText('We can start at two months and evaluate after the first service.')).toHaveCount(0);
+    await expect(page.getByText('Service frequency')).toHaveCount(0);
+  });
+
+  test('with a frequency param: that option is preselected, badge still shown', async ({ page }) => {
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&frequency=monthly&estimate=189`);
+    await page.waitForSelector('text=Schedule');
+
+    // The Monthly button is preselected (primary styling), badge still present,
+    // no reassurance, and frequency is not in the missing-fields callout.
+    await expect(page.getByRole('button', { name: 'Monthly', exact: true })).toHaveClass(/bg-primary-50/);
+    await expect(page.getByText('Most popular')).toBeVisible();
+    await expect(page.getByText('We can start at two months and evaluate after the first service.')).toHaveCount(0);
+    await expect(page.getByText('Service frequency')).toHaveCount(0);
+  });
 });
 
 // ── Full Order Flow with Stripe Test Mode ──

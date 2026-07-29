@@ -238,7 +238,13 @@ function OrderForm({ searchParams, navigate }) {
   const initialLength = searchParams.get("length") || "";
   const initialType = searchParams.get("type") || "sailboat";
   const initialHull = searchParams.get("hull") || "monohull";
-  const initialFrequency = searchParams.get("frequency") || "monthly";
+  // No silent default: when the capture link omits `frequency` (the customer was
+  // unsure), nothing is preselected and the customer must choose before checkout.
+  // An unrecognized value is treated as absent. Links WITH a valid frequency keep
+  // preselecting it exactly as before.
+  const rawFrequency = searchParams.get("frequency");
+  const initialFrequency =
+    rawFrequency && FREQUENCIES.some((f) => f.value === rawFrequency) ? rawFrequency : "";
   const initialEstimate = searchParams.get("estimate") || "";
   const initialPropellers = searchParams.get("propellers") || "1";
   const initialPaintAge = searchParams.get("paintAge") || "";
@@ -345,9 +351,10 @@ function OrderForm({ searchParams, navigate }) {
 
   const turnstileOk = !TURNSTILE_SITE_KEY || !!turnstileToken;
 
-  // Recurring iff cleaning + non-one-time frequency. Drives the wording of the
-  // charge-authorization checkbox and whether we capture a recurring terms version.
-  const isRecurring = isCleaningService && form.frequency !== "one_time";
+  // Recurring iff cleaning + a chosen, non-one-time frequency. Drives the wording
+  // of the charge-authorization checkbox and whether we capture a recurring terms
+  // version. An unselected frequency is neither recurring nor one-time.
+  const isRecurring = isCleaningService && !!form.frequency && form.frequency !== "one_time";
 
   // Conditions-based price range for the explainer panel. Recomputed live from
   // the editable form fields (length, boat type, frequency) plus the paint-age /
@@ -361,7 +368,10 @@ function OrderForm({ searchParams, navigate }) {
     boatLength: form.boatLength,
     boatType: selectedType?.type || initialType,
     hullType: selectedType?.hull || initialHull,
-    frequency: form.frequency === "one_time" ? "onetime" : form.frequency,
+    // Until a frequency is chosen, show the recurring range (the common case, and
+    // the "start at two months" default the reassurance line offers — bimonthly
+    // and monthly share the recurring rate). Picking one-time switches it live.
+    frequency: form.frequency === "one_time" ? "onetime" : (form.frequency || "monthly"),
     propellerCount: parseInt(initialPropellers, 10) || 1,
     paintAge: initialPaintAge,
     lastCleaned: initialLastCleaned,
@@ -401,6 +411,9 @@ function OrderForm({ searchParams, navigate }) {
   // Item recovery has no marina, so it's exempt. Mirrors the server gate.
   const boatBerthOk = isItemRecovery || isBerkeleyMarina(form.marina);
 
+  // A cleaning order must carry an explicit frequency — no silent default.
+  const frequencyChosen = !isCleaningService || !!form.frequency;
+
   const canSubmit =
     form.customerName &&
     form.customerEmail &&
@@ -409,6 +422,7 @@ function OrderForm({ searchParams, navigate }) {
     form.billingState &&
     form.billingZip &&
     boatBerthOk &&
+    frequencyChosen &&
     agreedToTerms &&
     agreedToCharge &&
     typedNameMatches &&
@@ -824,37 +838,59 @@ function OrderForm({ searchParams, navigate }) {
 
         {/* Service Details */}
         <SectionCard icon={Wrench} title="Service Details">
-          {/* Service summary with frequency */}
+          {/* Service summary */}
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Service</p>
-                <p className="text-base font-semibold text-gray-900">
-                  {showFrequency
-                    ? `${FREQUENCIES.find((f) => f.value === form.frequency)?.label || ""} ${service.name}`
-                    : service.name}
-                </p>
-              </div>
-              {showFrequency && (
-                <div className="flex items-center gap-2">
-                  <select
-                    className="h-9 rounded-md border border-gray-200 bg-white px-3 text-sm cursor-pointer hover:border-[#0073a8] transition-colors"
-                    value={form.frequency}
-                    onChange={(e) => updateField("frequency", e.target.value)}
-                  >
-                    {FREQUENCIES.map((f) => (
-                      <option key={f.value} value={f.value}>{f.label}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-            {estimateAmount && (
+            <p className="text-sm text-gray-500">Service</p>
+            <p className="text-base font-semibold text-gray-900">
+              {showFrequency && form.frequency
+                ? `${FREQUENCIES.find((f) => f.value === form.frequency)?.label || ""} ${service.name}`
+                : service.name}
+            </p>
+            {estimateAmount && form.frequency && (
               <p className="text-sm text-gray-500 mt-1">
                 Estimated: {formatCurrency(estimateAmount)}{form.frequency !== "one_time" ? " per service" : ""}
               </p>
             )}
           </div>
+
+          {/* Frequency picker (cleaning only). No preselection when the capture
+              link omitted `frequency`; the customer must choose. "Every 2 Months"
+              carries the Most-popular badge and doubles as the "unsure" default the
+              reassurance line offers. */}
+          {showFrequency && (
+            <div className="mt-4">
+              <Label className="text-sm font-medium text-gray-700">
+                How often?<span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+                {FREQUENCIES.map((f) => (
+                  <button
+                    key={f.value}
+                    type="button"
+                    onClick={() => updateField("frequency", f.value)}
+                    className={cn(
+                      "relative p-3 rounded-xl border-2 text-center transition-all duration-200",
+                      form.frequency === f.value
+                        ? "border-[#0073a8] bg-primary-50 text-primary-700"
+                        : "border-gray-200 bg-white hover:border-gray-300 text-gray-600"
+                    )}
+                  >
+                    {f.value === "bimonthly" && (
+                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#0073a8] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
+                        Most popular
+                      </span>
+                    )}
+                    <span className="block font-semibold text-sm">{f.label}</span>
+                  </button>
+                ))}
+              </div>
+              {!form.frequency && (
+                <p className="mt-3 text-sm text-gray-500">
+                  Unsure? We can start at two months and evaluate after the first service.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Conditions-based pricing — the estimate above is the starting point;
               the final charge depends on the growth found at service time. The
@@ -1089,6 +1125,7 @@ function OrderForm({ searchParams, navigate }) {
           if (!form.billingState) missing.push("State");
           if (!form.billingZip) missing.push("ZIP");
           if (!boatBerthOk) missing.push("Boat berthed in Berkeley Marina");
+          if (!frequencyChosen) missing.push("Service frequency");
           if (!cardState.numberComplete) missing.push("Card number");
           if (!cardState.expiryComplete) missing.push("Card expiration");
           if (!cardState.cvcComplete) missing.push("Card CVC");
