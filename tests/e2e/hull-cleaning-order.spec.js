@@ -200,6 +200,41 @@ test.describe('Hull Cleaning Order Form', () => {
     const submitBtn = page.getByText('Complete Order');
     await expect(submitBtn).toBeDisabled();
   });
+
+  test('should render the estimate scale with our quoted number when the field-capture link carries conditions', async ({ page }) => {
+    // The prefilled checkout link the field flow builds: paint + last-cleaned +
+    // the estimate we texted. The scale should mark that estimate.
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&frequency=monthly&estimate=284&paintAge=1.5-2yr&lastCleaned=13-24`);
+    await page.waitForSelector('text=Schedule');
+
+    const scale = page.getByTestId('estimate-scale');
+    await expect(scale).toBeVisible();
+    await expect(scale.getByText(/Our estimate: \$284/)).toBeVisible();
+    await expect(scale.getByText(/minimal growth/)).toBeVisible();
+    await expect(scale.getByText(/severe growth/)).toBeVisible();
+  });
+
+  test('should render the scale with a local-prediction marker when conditions are present but no estimate param', async ({ page }) => {
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&frequency=monthly&paintAge=1.5-2yr&lastCleaned=13-24`);
+    await page.waitForSelector('text=Schedule');
+
+    const scale = page.getByTestId('estimate-scale');
+    await expect(scale).toBeVisible();
+    // No estimate param => marker uses the local matrix prediction ($378 here).
+    await expect(scale.getByText(/Our estimate:/)).toBeVisible();
+  });
+
+  test('should render the scale with NO marker when conditions AND estimate are both unknown', async ({ page }) => {
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&frequency=monthly`);
+    await page.waitForSelector('text=Schedule');
+
+    const scale = page.getByTestId('estimate-scale');
+    await expect(scale).toBeVisible();
+    // No estimate param AND no paint/cleaning => the bar shows the span with no
+    // "our estimate" marker (no local-prediction fallback from nothing).
+    await expect(scale.getByText(/Our estimate:/)).toHaveCount(0);
+    await expect(scale.getByText(/minimal growth/)).toBeVisible();
+  });
 });
 
 // ── Full Order Flow with Stripe Test Mode ──
