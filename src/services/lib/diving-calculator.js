@@ -369,6 +369,109 @@ export function conditionPriceRange({
   };
 }
 
+// ── Estimate SCALE — the graphical min → worst-case bar with our prediction ──
+// Ported (not imported) from SailorSkills Pro's lib/pricing.ts
+// `calculateEstimateRange` (PR #410) so the customer-facing order page shows the
+// same range narrative the field-capture flow texted them. The three points are
+// fractions of the base rate applied on top of the fixed base + boat-type / prop
+// / anode charges, floored at the minimum. No new rates — every fraction comes
+// from the SEVERITY table above.
+//
+//   • min  = light growth (0% surcharge) — a boat cleaned now bills the floor.
+//   • mark = OUR prediction = the matrix severity for paint × last-cleaned.
+//            Unknown conditions ⇒ SEV (200%), the old single worst-case number.
+//   • max  = one matrix-severity step ABOVE the prediction (SEV 200% caps it).
+//            Better data lowers the prediction, which lowers the ceiling, so the
+//            range NARROWS with information; it never collapses (except when the
+//            minimum floor pins both ends).
+
+/** Ascending distinct growth-surcharge fractions the fouling matrix can yield
+ *  (0 … SEV 2.0). Derived from SEVERITY so it can never drift from the matrix. */
+export const SEVERITY_LADDER = Array.from(
+  new Set(Object.values(SEVERITY).map((s) => s.surcharge))
+).sort((a, b) => a - b);
+
+/** The worst-case fraction one matrix-severity step above `surcharge` (the top
+ *  of the ladder — SEV 2.0 — is returned when nothing is higher). */
+export function nextSeverityStep(surcharge) {
+  for (const step of SEVERITY_LADDER) {
+    if (step > surcharge) return step;
+  }
+  return SEVERITY_LADDER[SEVERITY_LADDER.length - 1];
+}
+
+/**
+ * Build the min → predicted → worst-case scale for a hull cleaning. Returns null
+ * for any non-cleaning service or an unusable boat length. Growth is the only
+ * axis that varies; the base + boat-type / prop / anode charges are computed once
+ * at the cleanest matrix cell (0% growth) and reused, so this can never disagree
+ * with calculateEstimate at the same growth fraction.
+ *
+ * When paintAge/lastCleaned identify a matrix cell, `predictedSurcharge` is that
+ * cell's severity and the marker sits proportionally between min and max. Without
+ * them (organic visitor) `hasPrediction` is false and the prediction defaults to
+ * SEV — callers should render the bar as a full span without a marker.
+ */
+export function estimateScale({
+  serviceKey = "cleaning",
+  boatLength = 35,
+  boatType = "sailboat",
+  hullType = "monohull",
+  frequency = "monthly",
+  propellerCount = 1,
+  paintAge = "<6mo",
+  lastCleaned = "<2",
+  anodeCount = 0,
+} = {}) {
+  if (serviceKey !== "cleaning") return null;
+
+  const len = parseInt(boatLength, 10);
+  if (!len || len < 1) return null;
+
+  // Everything except growth, at the cleanest matrix cell (Minimal = 0% growth).
+  // `base` is the amount each growth fraction multiplies; `subtotalNoGrowth` is
+  // the fixed floor the growth dollars stack onto.
+  const clean = calculateEstimate({
+    serviceKey, boatLength: len, boatType, hullType, frequency,
+    propellerCount, paintAge: "<6mo", lastCleaned: "<2", anodeCount,
+  });
+  const base = clean.rate * len;
+  const subtotalNoGrowth = clean.subtotal;
+
+  const hasPrediction =
+    PAINT_COLS.includes(paintAge) &&
+    Object.prototype.hasOwnProperty.call(MATRIX, lastCleaned);
+  const fouling = hasPrediction ? lookupFouling(paintAge, lastCleaned) : null;
+
+  const minSurcharge = 0; // light — always the low end
+  const predictedSurcharge = hasPrediction ? fouling.surcharge : 2.0; // unknown ⇒ SEV
+  const maxSurcharge = Math.max(nextSeverityStep(predictedSurcharge), predictedSurcharge);
+
+  const priceAt = (frac) => {
+    const subtotal = subtotalNoGrowth + base * frac;
+    return subtotal > 0 && subtotal < RATES.minimum ? RATES.minimum : subtotal;
+  };
+  const minPrice = priceAt(minSurcharge);
+  const predictedPrice = priceAt(predictedSurcharge);
+  const maxPrice = priceAt(maxSurcharge);
+  const span = maxPrice - minPrice;
+
+  return {
+    isOneTime: clean.isOneTime,
+    hasPrediction,
+    fouling,
+    minSurcharge,
+    predictedSurcharge,
+    maxSurcharge,
+    minPrice,
+    predictedPrice,
+    maxPrice,
+    // Marker position 0..1 along [minPrice, maxPrice] for the scale bar.
+    markerFraction: span > 0 ? Math.min(1, Math.max(0, (predictedPrice - minPrice) / span)) : 0,
+    single: minPrice === maxPrice,
+  };
+}
+
 /**
  * Collapse the four condition tiers into display rows, merging adjacent tiers
  * that share a surcharge (Light + Moderate, both 0%) into one labeled row so

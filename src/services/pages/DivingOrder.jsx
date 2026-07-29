@@ -8,9 +8,10 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
 import { cn, formatCurrency } from "../lib/utils";
-import { SERVICES, conditionPriceRange } from "../lib/diving-calculator";
+import { SERVICES, conditionPriceRange, estimateScale } from "../lib/diving-calculator";
 import PageMeta from "../components/PageMeta";
 import ConditionsPricing from "../components/ConditionsPricing";
+import EstimateScale from "../components/EstimateScale";
 import {
   Ship, MapPin, User, Wrench, CreditCard, ArrowRight, Loader2,
   CheckCircle2, AlertCircle, Anchor, Calendar
@@ -355,19 +356,23 @@ function OrderForm({ searchParams, navigate }) {
   // then drops the prediction and shows the full Light–Severe span. If the length
   // is missing/invalid it returns null and the panel omits itself.
   const selectedType = BOAT_TYPES.find((t) => t.value === form.boatType);
-  const conditionRange = isCleaningService
-    ? conditionPriceRange({
-        serviceKey: "cleaning",
-        boatLength: form.boatLength,
-        boatType: selectedType?.type || initialType,
-        hullType: selectedType?.hull || initialHull,
-        frequency: form.frequency === "one_time" ? "onetime" : form.frequency,
-        propellerCount: parseInt(initialPropellers, 10) || 1,
-        paintAge: initialPaintAge,
-        lastCleaned: initialLastCleaned,
-        anodeCount: parseInt(initialAnodes, 10) || 0,
-      })
-    : null;
+  const conditionInputs = {
+    serviceKey: "cleaning",
+    boatLength: form.boatLength,
+    boatType: selectedType?.type || initialType,
+    hullType: selectedType?.hull || initialHull,
+    frequency: form.frequency === "one_time" ? "onetime" : form.frequency,
+    propellerCount: parseInt(initialPropellers, 10) || 1,
+    paintAge: initialPaintAge,
+    lastCleaned: initialLastCleaned,
+    anodeCount: parseInt(initialAnodes, 10) || 0,
+  };
+  const conditionRange = isCleaningService ? conditionPriceRange(conditionInputs) : null;
+  // Graphical min → worst-case scale (mirrors Pro's calculateEstimateRange). The
+  // marker prefers the estimate we actually quoted (the URL param) so the page
+  // shows the same number the customer was texted; it falls back to the local
+  // matrix prediction for organic visitors.
+  const estScale = isCleaningService ? estimateScale(conditionInputs) : null;
 
   // Optimistic promo preview — the real discount is validated + applied server-side
   // by the billing engine at checkout. This line is a promise, not the price math;
@@ -852,10 +857,16 @@ function OrderForm({ searchParams, navigate }) {
           </div>
 
           {/* Conditions-based pricing — the estimate above is the starting point;
-              the final charge depends on the growth found at service time. */}
-          {conditionRange && (
-            <div className="mt-4 rounded-lg border border-gray-100 bg-white p-4">
-              <ConditionsPricing range={conditionRange} />
+              the final charge depends on the growth found at service time. The
+              graphical scale places our estimate on the min → worst-case range;
+              the table below itemizes what each condition would cost. */}
+          {(estScale || conditionRange) && (
+            <div className="mt-4 rounded-lg border border-gray-100 bg-white p-4 space-y-4">
+              {estScale && (
+                <EstimateScale scale={estScale} markerPrice={estimateAmount} />
+              )}
+              {estScale && conditionRange && <div className="border-t border-gray-100" />}
+              {conditionRange && <ConditionsPricing range={conditionRange} />}
             </div>
           )}
 

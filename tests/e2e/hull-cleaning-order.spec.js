@@ -200,6 +200,19 @@ test.describe('Hull Cleaning Order Form', () => {
     const submitBtn = page.getByText('Complete Order');
     await expect(submitBtn).toBeDisabled();
   });
+
+  test('should render the estimate scale with our quoted number when the field-capture link carries conditions', async ({ page }) => {
+    // The prefilled checkout link the field flow builds: paint + last-cleaned +
+    // the estimate we texted. The scale should mark that estimate.
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&frequency=monthly&estimate=284&paintAge=1.5-2yr&lastCleaned=13-24`);
+    await page.waitForSelector('text=Schedule');
+
+    const scale = page.getByTestId('estimate-scale');
+    await expect(scale).toBeVisible();
+    await expect(scale.getByText(/Our estimate: \$284/)).toBeVisible();
+    await expect(scale.getByText('Freshly cleaned')).toBeVisible();
+    await expect(scale.getByText('Worst case')).toBeVisible();
+  });
 });
 
 // ── Full Order Flow with Stripe Test Mode ──
