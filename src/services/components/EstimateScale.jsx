@@ -75,18 +75,18 @@ export default function EstimateScale({ scale, markerPrice, className }) {
 
       {/* Endpoint labels */}
       <div className="mt-2 flex items-start justify-between text-xs">
-        <div className="text-left">
-          <p className="font-semibold text-gray-700 tabular-nums">
+        <p className="text-left">
+          <span className="font-semibold text-gray-700 tabular-nums">
             {formatCurrency(scale.minPrice)}
-          </p>
-          <p className="text-gray-400">Freshly cleaned</p>
-        </div>
-        <div className="text-right">
-          <p className="font-semibold text-gray-700 tabular-nums">
+          </span>
+          <span className="text-gray-400"> · minimal growth</span>
+        </p>
+        <p className="text-right">
+          <span className="font-semibold text-gray-700 tabular-nums">
             {formatCurrency(scale.maxPrice)}
-          </p>
-          <p className="text-gray-400">Worst case</p>
-        </div>
+          </span>
+          <span className="text-gray-400"> · severe growth</span>
+        </p>
       </div>
     </div>
   );
