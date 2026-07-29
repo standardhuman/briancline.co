@@ -281,6 +281,51 @@ test.describe('Hull Cleaning Order Form', () => {
     await expect(page.getByText('Service frequency')).toHaveCount(0);
   });
 
+  test('customer-editable condition selects: default to "Not sure", no marker', async ({ page }) => {
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&frequency=monthly`);
+    await page.waitForSelector('text=Schedule');
+
+    // Both selects render and default to "Not sure" (empty value) with no params.
+    const paint = page.getByTestId('paint-age-select');
+    const cleaned = page.getByTestId('last-cleaned-select');
+    await expect(paint).toBeVisible();
+    await expect(cleaned).toBeVisible();
+    await expect(paint).toHaveValue('');
+    await expect(cleaned).toHaveValue('');
+
+    // No conditions + no estimate param ⇒ markerless full span (#17 behavior).
+    const scale = page.getByTestId('estimate-scale');
+    await expect(scale).toBeVisible();
+    await expect(scale.getByText(/Our estimate:/)).toHaveCount(0);
+  });
+
+  test('selecting paint + last-cleaned narrows the estimate and shows a marker', async ({ page }) => {
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&frequency=monthly`);
+    await page.waitForSelector('text=Schedule');
+
+    const scale = page.getByTestId('estimate-scale');
+    await expect(scale.getByText(/Our estimate:/)).toHaveCount(0);
+
+    // Customer picks their hull condition — the local-prediction marker appears.
+    await page.getByTestId('paint-age-select').selectOption('1.5-2yr');
+    await page.getByTestId('last-cleaned-select').selectOption('13-24');
+    await expect(scale.getByText(/Our estimate:/)).toBeVisible();
+
+    // Clearing back to "Not sure" removes the marker again.
+    await page.getByTestId('paint-age-select').selectOption('');
+    await expect(scale.getByText(/Our estimate:/)).toHaveCount(0);
+  });
+
+  test('condition selects prefill from URL params (field-capture handoff)', async ({ page }) => {
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&frequency=monthly&paintAge=2%2Byr&lastCleaned=24%2B`);
+    await page.waitForSelector('text=Schedule');
+
+    await expect(page.getByTestId('paint-age-select')).toHaveValue('2+yr');
+    await expect(page.getByTestId('last-cleaned-select')).toHaveValue('24+');
+    // Prefilled conditions ⇒ a local-prediction marker is shown.
+    await expect(page.getByTestId('estimate-scale').getByText(/Our estimate:/)).toBeVisible();
+  });
+
   test('with a frequency param: that option is preselected, badge still shown', async ({ page }) => {
     await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&frequency=monthly&estimate=189`);
     await page.waitForSelector('text=Schedule');
