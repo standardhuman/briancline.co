@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && npx playwright install chromium-headless-shell && node scripts/prerender.mjs",
+    "build": "vite build && npx playwright install --with-deps chromium-headless-shell && node scripts/prerender.mjs",
     "preview": "vite preview"
   },
   "keywords": [],
