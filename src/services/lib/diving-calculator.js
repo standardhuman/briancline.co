@@ -105,6 +105,36 @@ export function lookupFouling(paintAge, lastCleaned) {
   return { severity: code, ...(SEVERITY[code] || SEVERITY.SEV) };
 }
 
+/**
+ * Customer-facing condition options, shared by the /hull-cleaning estimator
+ * (Diving.jsx) and the /hull-cleaning/order form (DivingOrder.jsx) so the two
+ * surfaces can NEVER drift. `value`s are exactly the matrix column codes
+ * (PAINT_COLS) and row codes (MATRIX keys) that lookupFouling expects — an
+ * option whose value isn't a real cell would silently fall through to no
+ * prediction (see estimateScale / conditionPriceRange). A "Not sure" choice is
+ * NOT an option here: callers represent "unknown" as an empty value ("") and
+ * omit it from the matrix lookup, which yields the markerless full-span scale
+ * (#17). The estimate-scale/conditions-range tests assert these stay aligned
+ * with PAINT_COLS / MATRIX.
+ */
+export const PAINT_AGE_OPTIONS = [
+  { value: "<6mo", label: "< 6 months", desc: "Fresh paint" },
+  { value: "6-12mo", label: "6–12 months" },
+  { value: "1-1.5yr", label: "1–1.5 years" },
+  { value: "1.5-2yr", label: "1.5–2 years" },
+  { value: "2+yr", label: "2+ years" },
+];
+
+export const LAST_CLEANED_OPTIONS = [
+  { value: "<2", label: "< 2 months" },
+  { value: "2-4", label: "2–4 months" },
+  { value: "5-6", label: "5–6 months" },
+  { value: "7-8", label: "7–8 months" },
+  { value: "9-12", label: "9–12 months" },
+  { value: "13-24", label: "1–2 years" },
+  { value: "24+", label: "2+ years" },
+];
+
 // ── Main calculator ──
 export function calculateEstimate({
   serviceKey = "cleaning",

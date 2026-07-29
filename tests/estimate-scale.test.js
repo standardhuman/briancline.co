@@ -10,6 +10,8 @@ import {
   estimateScale,
   nextSeverityStep,
   SEVERITY_LADDER,
+  PAINT_AGE_OPTIONS,
+  LAST_CLEANED_OPTIONS,
 } from '../src/services/lib/diving-calculator.js';
 
 const CLEANING = {
@@ -139,6 +141,42 @@ describe('estimateScale - organic visitor / unknown conditions (no marker, per #
     expect(scale.hasPrediction).toBe(false);
     expect(scale.predictedPrice).toBeNull();
     expect(scale.markerFraction).toBeNull();
+  });
+});
+
+describe('order-form condition options map to real matrix cells (drift guard)', () => {
+  // Every option the customer can pick on the order form (ConditionSelects) must
+  // identify a matrix cell, so selecting values ALWAYS narrows + marks the scale
+  // (the live-narrowing feature). If PAINT_AGE_OPTIONS / LAST_CLEANED_OPTIONS
+  // drift from PAINT_COLS / MATRIX, this fails.
+  it('every paint × last-cleaned option pair yields a prediction with a marker', () => {
+    for (const paint of PAINT_AGE_OPTIONS) {
+      for (const cleaned of LAST_CLEANED_OPTIONS) {
+        const scale = estimateScale({
+          ...CLEANING,
+          paintAge: paint.value,
+          lastCleaned: cleaned.value,
+        });
+        const where = `${paint.value} / ${cleaned.value}`;
+        expect(scale, where).not.toBeNull();
+        expect(scale.hasPrediction, where).toBe(true);
+        expect(scale.predictedSurcharge, where).not.toBeNull();
+        expect(scale.predictedPrice, where).not.toBeNull();
+        expect(scale.markerFraction, where).not.toBeNull();
+        expect(scale.markerFraction, where).toBeGreaterThanOrEqual(0);
+        expect(scale.markerFraction, where).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('the empty ("Not sure") value in EITHER select drops the marker', () => {
+    const noPaint = estimateScale({ ...CLEANING, paintAge: '', lastCleaned: '<2' });
+    expect(noPaint.hasPrediction).toBe(false);
+    expect(noPaint.markerFraction).toBeNull();
+
+    const noCleaned = estimateScale({ ...CLEANING, paintAge: '2+yr', lastCleaned: '' });
+    expect(noCleaned.hasPrediction).toBe(false);
+    expect(noCleaned.markerFraction).toBeNull();
   });
 });
 

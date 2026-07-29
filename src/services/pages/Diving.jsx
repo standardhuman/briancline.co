@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "../components/ui/accordion";
 import { cn, formatCurrency } from "../lib/utils";
-import { calculateEstimate, conditionPriceRange, conditionDisplayRows, RATES, SERVICES, SERVICE_VISIBILITY } from "../lib/diving-calculator";
+import { calculateEstimate, conditionPriceRange, conditionDisplayRows, RATES, SERVICES, SERVICE_VISIBILITY, PAINT_AGE_OPTIONS, LAST_CLEANED_OPTIONS } from "../lib/diving-calculator";
 import PageMeta from "../components/PageMeta";
 import JsonLd from "../components/JsonLd";
 import OptImage from "../components/OptImage";
@@ -102,23 +102,10 @@ const PROPELLERS = [
   { value: 4, label: "4" },
 ];
 
-const PAINT_AGES = [
-  { value: "<6mo", label: "< 6 months", desc: "Fresh paint" },
-  { value: "6-12mo", label: "6–12 months" },
-  { value: "1-1.5yr", label: "1–1.5 years" },
-  { value: "1.5-2yr", label: "1.5–2 years" },
-  { value: "2+yr", label: "2+ years" },
-];
-
-const LAST_CLEANED = [
-  { value: "<2", label: "< 2 months" },
-  { value: "2-4", label: "2–4 months" },
-  { value: "5-6", label: "5–6 months" },
-  { value: "7-8", label: "7–8 months" },
-  { value: "9-12", label: "9–12 months" },
-  { value: "13-24", label: "1–2 years" },
-  { value: "24+", label: "2+ years" },
-];
+// Vocabulary shared with the order form — single source of truth in the lib so
+// the estimator and /hull-cleaning/order can never drift (see diving-calculator).
+const PAINT_AGES = PAINT_AGE_OPTIONS;
+const LAST_CLEANED = LAST_CLEANED_OPTIONS;
 
 const SERVICE_LIST = [
   "cleaning",

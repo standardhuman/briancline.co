@@ -8,10 +8,11 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
 import { cn, formatCurrency } from "../lib/utils";
-import { SERVICES, conditionPriceRange, estimateScale } from "../lib/diving-calculator";
+import { SERVICES, conditionPriceRange, estimateScale, PAINT_AGE_OPTIONS, LAST_CLEANED_OPTIONS } from "../lib/diving-calculator";
 import PageMeta from "../components/PageMeta";
 import ConditionsPricing from "../components/ConditionsPricing";
 import EstimateScale from "../components/EstimateScale";
+import ConditionSelects from "../components/ConditionSelects";
 import {
   Ship, MapPin, User, Wrench, CreditCard, ArrowRight, Loader2,
   CheckCircle2, AlertCircle, Anchor, Calendar
@@ -247,8 +248,17 @@ function OrderForm({ searchParams, navigate }) {
     rawFrequency && FREQUENCIES.some((f) => f.value === rawFrequency) ? rawFrequency : "";
   const initialEstimate = searchParams.get("estimate") || "";
   const initialPropellers = searchParams.get("propellers") || "1";
-  const initialPaintAge = searchParams.get("paintAge") || "";
-  const initialLastCleaned = searchParams.get("lastCleaned") || "";
+  // Condition hints from the field-capture handoff. Only a value that maps to a
+  // real matrix cell prefills the select; anything else (absent, or an unknown
+  // code) falls back to "" = "Not sure", which drives the markerless full-span
+  // estimate scale (#17). These are the DEFAULTS for the now-editable form
+  // fields below — the customer can change or clear them.
+  const rawPaintAge = searchParams.get("paintAge");
+  const initialPaintAge = PAINT_AGE_OPTIONS.some((o) => o.value === rawPaintAge) ? rawPaintAge : "";
+  const rawLastCleaned = searchParams.get("lastCleaned");
+  const initialLastCleaned = LAST_CLEANED_OPTIONS.some((o) => o.value === rawLastCleaned)
+    ? rawLastCleaned
+    : "";
   const initialAnodes = searchParams.get("anodes") || "0";
   // Field-capture lead-boat id. When a Pro capture link carries it, the checkout
   // attaches to THAT exact boat instead of the (customer_id|customer_email, name)
@@ -308,6 +318,10 @@ function OrderForm({ searchParams, navigate }) {
     billingState: "",
     billingZip: "",
     frequency: isCleaningService ? initialFrequency : "one_time",
+    // Editable hull-condition inputs (cleaning only). "" = "Not sure" (unknown),
+    // prefilled from the capture link when the diver knew — see ConditionSelects.
+    paintAge: initialPaintAge,
+    lastCleaned: initialLastCleaned,
     notes: "",
     promoCode: initialPromoCode,
     // Item recovery fields
@@ -362,11 +376,13 @@ function OrderForm({ searchParams, navigate }) {
   const isRecurring = isCleaningService && !!form.frequency && form.frequency !== "one_time";
 
   // Conditions-based price range for the explainer panel. Recomputed live from
-  // the editable form fields (length, boat type, frequency) plus the paint-age /
-  // last-cleaned hints carried in the URL. paintAge/lastCleaned aren't form
-  // fields here, so an organic visitor arrives without them — conditionPriceRange
-  // then drops the prediction and shows the full Light–Severe span. If the length
-  // is missing/invalid it returns null and the panel omits itself.
+  // the editable form fields (length, boat type, frequency) plus the customer's
+  // hull-condition selects (paint age / last cleaned), which prefill from the
+  // capture link's URL hints and default to "Not sure" ("") when absent. When
+  // either is "Not sure" conditionPriceRange / estimateScale drop the prediction
+  // and show the full Light–Severe span with no marker (#17); selecting real
+  // values narrows and marks the estimate live. If the length is missing/invalid
+  // it returns null and the panel omits itself.
   const selectedType = BOAT_TYPES.find((t) => t.value === form.boatType);
   const conditionInputs = {
     serviceKey: "cleaning",
@@ -378,8 +394,8 @@ function OrderForm({ searchParams, navigate }) {
     // and monthly share the recurring rate). Picking one-time switches it live.
     frequency: form.frequency === "one_time" ? "onetime" : (form.frequency || "monthly"),
     propellerCount: parseInt(initialPropellers, 10) || 1,
-    paintAge: initialPaintAge,
-    lastCleaned: initialLastCleaned,
+    paintAge: form.paintAge,
+    lastCleaned: form.lastCleaned,
     anodeCount: parseInt(initialAnodes, 10) || 0,
   };
   const conditionRange = isCleaningService ? conditionPriceRange(conditionInputs) : null;
@@ -515,8 +531,10 @@ function OrderForm({ searchParams, navigate }) {
           hullType: hullType,
           frequency: isCleaningService ? form.frequency : "one-time",
           propellerCount: initialPropellers,
-          paintAge: initialPaintAge,
-          lastCleaned: initialLastCleaned,
+          // Submit the customer's live selections (empty string = "Not sure" /
+          // unknown — same absent-condition convention as before).
+          paintAge: form.paintAge,
+          lastCleaned: form.lastCleaned,
           anodeCount: initialAnodes,
           includesAnodes: parseInt(initialAnodes) > 0,
         },
@@ -897,6 +915,21 @@ function OrderForm({ searchParams, navigate }) {
                   Unsure? We can start at two months and evaluate after the first service.
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Hull-condition inputs (cleaning only). Optional — the customer can
+              narrow the estimate by telling us the paint age + last-cleaned gap,
+              or leave them on "Not sure". Selecting values updates the scale and
+              tier table below live. */}
+          {showFrequency && (
+            <div className="mt-4">
+              <ConditionSelects
+                paintAge={form.paintAge}
+                lastCleaned={form.lastCleaned}
+                onPaintAgeChange={(v) => updateField("paintAge", v)}
+                onLastCleanedChange={(v) => updateField("lastCleaned", v)}
+              />
             </div>
           )}
 
