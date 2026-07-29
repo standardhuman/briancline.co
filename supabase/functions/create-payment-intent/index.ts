@@ -7,6 +7,7 @@ import {
   DEFAULT_ALLOWED_MARINAS,
   type LeadFormData,
 } from '../_shared/lead-validation.ts'
+import { normalizeLeadBoatId, boatLookupPlan } from '../_shared/boat-match.ts'
 
 const stripeMode = Deno.env.get('STRIPE_MODE') || 'test'
 const stripeSecretKey = stripeMode === 'live'
@@ -325,9 +326,31 @@ serve(async (req) => {
         if (formData.serviceDetails.hullType) boatData.hull_type = formData.serviceDetails.hullType
         if (formData.serviceDetails.twinEngines !== undefined) boatData.twin_engines = formData.serviceDetails.twinEngines
       }
-      const { data: existingBoat } = await supabase.from('boats').select('*')
-        .or(`and(customer_id.eq.${customer.id},name.eq.${formData.boatName}),and(customer_email.eq.${formData.customerEmail},name.eq.${formData.boatName})`)
-        .limit(1).maybeSingle()
+      // Find the boat to attach to, in plan order (see _shared/boat-match.ts):
+      // an explicit lead-boat id (the field-capture link's `leadBoatId`) FIRST,
+      // scoped to the resolved provider so a stale/foreign id can't touch another
+      // tenant's boat and simply falls through; then the legacy heuristic. The id
+      // path is the fix for phone-only / placeholder-named leads, which the
+      // (customer_id | customer_email, name) heuristic can never match (Pro sets
+      // no customer_id and a phone-only lead has no email). Old links carry no
+      // leadBoatId and resolve exactly as before.
+      const leadBoatId = normalizeLeadBoatId((formData as any).leadBoatId)
+      let existingBoat: any = null
+      for (const lookup of boatLookupPlan(leadBoatId, providerOwnerUserId)) {
+        let row: any = null
+        if (lookup.kind === 'id') {
+          const { data } = await supabase.from('boats').select('*')
+            .eq('id', lookup.id).eq('provider_id', lookup.providerOwnerUserId)
+            .limit(1).maybeSingle()
+          row = data
+        } else {
+          const { data } = await supabase.from('boats').select('*')
+            .or(`and(customer_id.eq.${customer.id},name.eq.${formData.boatName}),and(customer_email.eq.${formData.customerEmail},name.eq.${formData.boatName})`)
+            .limit(1).maybeSingle()
+          row = data
+        }
+        if (row) { existingBoat = row; break }
+      }
       if (existingBoat) {
         const { data: updatedBoat } = await supabase.from('boats').update(boatData).eq('id', existingBoat.id).select().single()
         boat = updatedBoat

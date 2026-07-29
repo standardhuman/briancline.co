@@ -250,6 +250,11 @@ function OrderForm({ searchParams, navigate }) {
   const initialPaintAge = searchParams.get("paintAge") || "";
   const initialLastCleaned = searchParams.get("lastCleaned") || "";
   const initialAnodes = searchParams.get("anodes") || "0";
+  // Field-capture lead-boat id. When a Pro capture link carries it, the checkout
+  // attaches to THAT exact boat instead of the (customer_id|customer_email, name)
+  // heuristic — which strands phone-only / placeholder-named leads. Opaque
+  // passthrough: forwarded to create-payment-intent, never trusted client-side.
+  const initialLeadBoatId = searchParams.get("leadBoatId") || "";
 
   // Identity + owner pre-fill (SailorSkills boat-portal deep link). These mirror
   // the shared querystring contract defined in the marketplace repo at
@@ -495,6 +500,9 @@ function OrderForm({ searchParams, navigate }) {
         estimate: estimateAmount || 0,
         service: service.name,
         billingZip: form.billingZip,
+        // Empty string when absent (old links / organic visitors) — the edge fn
+        // treats that as "no id" and falls back to the name/email heuristic.
+        leadBoatId: initialLeadBoatId,
         // Promo offers are recurring-only — a one-time order must never attempt a
         // claim (the preview already tells the customer it doesn't apply here).
         promoCode: form.promoCode.trim() && isRecurring ? form.promoCode.trim().toUpperCase() : "",

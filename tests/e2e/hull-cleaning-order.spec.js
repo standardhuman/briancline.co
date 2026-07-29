@@ -182,6 +182,30 @@ test.describe('Hull Cleaning Order Form', () => {
     await expect(page.getByText('Estimated cost: $250')).toBeVisible();
   });
 
+  test('should pre-fill boat + owner contact fields from the field-capture link', async ({ page }) => {
+    // The Pro capture link carries boatName + customerName/Email/Phone; the
+    // customer should not have to retype them (all remain editable).
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=38&type=sailboat&hull=monohull&frequency=monthly&estimate=171&boatName=Serenity&customerName=Dana%20Reeves&customerEmail=dana%40example.com&customerPhone=%28510%29%20555-8899`);
+    await page.waitForSelector('text=Schedule');
+
+    await expect(page.locator('input[placeholder="Sea Spirit"]')).toHaveValue('Serenity');
+    await expect(page.locator('input[placeholder="John Smith"]')).toHaveValue('Dana Reeves');
+    await expect(page.locator('input[placeholder="john@example.com"]')).toHaveValue('dana@example.com');
+    await expect(page.locator('input[placeholder="(510) 555-1234"]')).toHaveValue('(510) 555-8899');
+  });
+
+  test('with no capture params: boat + owner contact fields start empty', async ({ page }) => {
+    // Organic visitor / old link with no boatName or customer* params — the
+    // contact fields must not be pre-populated from anything.
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=35&type=sailboat&hull=monohull&frequency=monthly&estimate=157`);
+    await page.waitForSelector('text=Schedule');
+
+    await expect(page.locator('input[placeholder="Sea Spirit"]')).toHaveValue('');
+    await expect(page.locator('input[placeholder="John Smith"]')).toHaveValue('');
+    await expect(page.locator('input[placeholder="john@example.com"]')).toHaveValue('');
+    await expect(page.locator('input[placeholder="(510) 555-1234"]')).toHaveValue('');
+  });
+
   test('should display all form sections', async ({ page }) => {
     await page.goto(`${ORDER_BASE}?service=cleaning&length=35&type=sailboat&frequency=monthly&estimate=157`);
     await page.waitForSelector('text=Schedule');
