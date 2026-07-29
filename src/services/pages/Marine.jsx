@@ -29,7 +29,7 @@ const services = [
     to: "/hull-cleaning",
     Icon: Waves,
     title: "Hull Cleaning",
-    body: "Subscription cleaning, inspections, propeller service, and item recovery — diving directed and inspected to a licensed Master's standard.",
+    body: "Subscription cleaning, inspections, propeller service, and item recovery — diving directed and inspected to a professional captain's standard.",
     cta: "Get an instant estimate",
   },
   {
@@ -49,7 +49,7 @@ const services = [
 ];
 
 const credentials = [
-  { n: "USCG", l: "Licensed Master" },
+  { n: "Ferry", l: "Former high-speed captain" },
   { n: "US Sailing", l: "Cruising Instructor" },
   { n: "~20 yrs", l: "On San Francisco Bay" },
 ];
@@ -61,7 +61,7 @@ const localBusinessSchema = {
   "name": "Brian Cline Vessel Management",
   "url": "https://briancline.co/marine",
   "description":
-    "Vessel management on San Francisco Bay — hull cleaning, boat detailing, sailing lessons, and vessel deliveries, directed to a USCG-licensed Master's standard of care. Serving Berkeley Marina, Oakland, Alameda, Emeryville, Richmond, Sausalito, and San Francisco marinas.",
+    "Vessel management on San Francisco Bay — hull cleaning, boat detailing, sailing lessons, and vessel deliveries, directed to a professional captain's standard of care. Serving Berkeley Marina, Oakland, Alameda, Emeryville, Richmond, Sausalito, and San Francisco marinas.",
   "founder": {
     "@type": "Person",
     "@id": "https://briancline.co/#brian-cline",
@@ -170,7 +170,7 @@ export default function Marine() {
     <div style={{ fontFamily: c.sans, background: c.paper, color: c.text }}>
       <PageMeta
         title="Vessel Management on San Francisco Bay | Brian Cline"
-        description="Hull cleaning, boat detailing, sailing lessons, and vessel deliveries on San Francisco Bay — directed to a USCG-licensed Master's standard of care. USCG Licensed Master, US Sailing Cruising Instructor, nearly 20 years on the water."
+        description="Hull cleaning, boat detailing, sailing lessons, and vessel deliveries on San Francisco Bay — directed to a professional captain's standard of care. Former high-speed ferry captain, US Sailing Cruising Instructor, nearly 20 years on the water."
       />
       <JsonLd data={localBusinessSchema} />
       <style>{scopedCss}</style>
@@ -215,7 +215,7 @@ export default function Marine() {
                 maxWidth: "15ch",
               }}
             >
-              A licensed Master overseeing every job,{" "}
+              A professional captain overseeing every job,{" "}
               <span style={{ color: c.cyan }}>above and below the waterline</span>.
             </h1>
             <p
@@ -229,7 +229,7 @@ export default function Marine() {
               }}
             >
               Hull cleaning, detailing, sailing instruction, and vessel deliveries on San Francisco
-              Bay — every job directed and held to a USCG-licensed Master's standard of care.
+              Bay — every job directed and held to a professional captain's standard of care.
             </p>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", margin: "30px 0 0" }}>
               <Link
@@ -280,7 +280,7 @@ export default function Marine() {
                 margin: "28px 0 0",
               }}
             >
-              USCG Licensed Master · US Sailing Cruising Instructor · ~20 Years on the Bay
+              Former Ferry Captain · US Sailing Cruising Instructor · ~20 Years on the Bay
             </p>
           </div>
 
@@ -395,7 +395,7 @@ export default function Marine() {
               Vessel Deliveries
             </h2>
             <span style={{ fontFamily: c.sans, fontSize: 14, color: c.textSec }}>
-              {" "}— professional delivery up and down the West Coast and beyond, captained personally by a USCG Master.
+              {" "}— professional delivery up and down the West Coast and beyond, captained personally by a former ferry captain.
             </span>
           </div>
           <span className="bcm-go" style={{ ...cardGo, flex: "none", color: c.textSec }}>

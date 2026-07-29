@@ -411,7 +411,7 @@ export default function Diving() {
                 Hull Cleaning & Dive Services
               </h1>
               <p className="text-lg text-gray-600 max-w-2xl">
-                Professional underwater hull cleaning on San Francisco Bay, directed to a USCG-licensed Master's standard of care. Transparent pricing based on your boat's specs — get an instant estimate.
+                Professional underwater hull cleaning on San Francisco Bay, directed to a professional captain's standard of care. Transparent pricing based on your boat's specs — get an instant estimate.
               </p>
               <div className="mt-5 max-w-2xl inline-flex items-start gap-2 rounded-xl border-2 border-primary-200 bg-primary-50/70 px-4 py-3 text-sm text-left text-gray-800">
                 <Info className="w-5 h-5 flex-shrink-0 text-[#0073a8] mt-0.5" />

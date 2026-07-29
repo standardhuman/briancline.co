@@ -1,13 +1,13 @@
 # Brian Cline
 
-> Brian Cline is a US Sailing certified instructor, USCG licensed captain, and marine services professional based in Berkeley, California. He provides hull cleaning, boat detailing, vessel deliveries, and private sailing instruction on San Francisco Bay. Nearly 20 years of experience teaching and working on the water.
+> Brian Cline is a US Sailing certified instructor, former high-speed ferry captain, and marine services professional based in Berkeley, California. He provides hull cleaning, boat detailing, vessel deliveries, and private sailing instruction on San Francisco Bay. Nearly 20 years of experience teaching and working on the water.
 
 ## Marine Services
 
 - [Marine Services Overview](https://briancline.co/marine): Hub page for all marine services offered by Brian Cline on San Francisco Bay.
 - [Hull Cleaning](https://briancline.co/hull-cleaning): Professional underwater hull cleaning for sailboats and powerboats at Berkeley Marina, Oakland, Alameda, Emeryville, Richmond, San Francisco, and Sausalito marinas. Subscription plans and one-time service available. Includes zinc anode inspection, propeller cleaning, and before/after GoPro video.
 - [Boat Detailing](https://briancline.co/boat-detailing): Above-waterline boat cleaning, waxing, polishing, metal polishing, teak care, and interior detailing throughout San Francisco Bay. Serving Berkeley, Emeryville, Richmond, and Oakland marinas.
-- [Vessel Deliveries](https://briancline.co/deliveries): Licensed captain services for coastal and offshore vessel deliveries along the US West Coast and beyond. USCG Licensed Master.
+- [Vessel Deliveries](https://briancline.co/deliveries): Coastal and offshore vessel delivery services along the US West Coast and beyond, captained personally by a former high-speed ferry captain.
 
 ## Sailing Instruction
 
@@ -16,7 +16,7 @@
 
 ## About
 
-- [Brian Cline](https://briancline.co): Personal portfolio site. Entrepreneur, builder, US Sailing instructor, USCG Licensed Master. Solo sailed to Hawaii and back. Thru-hiked 1,000+ miles of the Appalachian Trail.
+- [Brian Cline](https://briancline.co): Personal portfolio site. Entrepreneur, builder, US Sailing instructor, former high-speed ferry captain. Solo sailed to Hawaii and back. Thru-hiked 1,000+ miles of the Appalachian Trail.
 
 ## Contact
 

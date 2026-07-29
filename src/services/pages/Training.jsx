@@ -47,13 +47,13 @@ export default function Training() {
     <div>
       <PageMeta
         title="Sailing Lessons on San Francisco Bay | Brian Cline"
-        description="Learn to sail on San Francisco Bay directly with a US Sailing Cruising Instructor and USCG Licensed Master. Private and small-group sailing lessons from basic keelboat to offshore passage making. Nearly 20 years of teaching experience."
+        description="Learn to sail on San Francisco Bay directly with a US Sailing Cruising Instructor and former high-speed ferry captain. Private and small-group sailing lessons from basic keelboat to offshore passage making. Nearly 20 years of teaching experience."
       />
       <JsonLd data={{
         "@context": "https://schema.org",
         "@type": "Service",
         "name": "Sailing Lessons - San Francisco Bay",
-        "description": "Private and small-group sailing instruction on San Francisco Bay, taught directly by a US Sailing Cruising Instructor and USCG Licensed Master with nearly 20 years of experience. Beginner through advanced offshore passage making.",
+        "description": "Private and small-group sailing instruction on San Francisco Bay, taught directly by a US Sailing Cruising Instructor and former high-speed ferry captain with nearly 20 years of experience. Beginner through advanced offshore passage making.",
         "provider": { "@id": "https://briancline.co/#vessel-management" },
         "areaServed": { "@type": "Place", "name": "San Francisco Bay Area" },
         "serviceType": "Sailing Instruction",
@@ -62,7 +62,7 @@ export default function Training() {
       <PageHero
         title="Private Sailing and Powerboat Lessons"
         subtitle="One-on-one instruction on your boat, tailored to your goals. No group classes, no strangers — just you, your boat, and a decade of teaching experience."
-        credentials="USCG Licensed Master · US Sailing Cruising Instructor"
+        credentials="Former Ferry Captain · US Sailing Cruising Instructor"
         cta="Book a Free Consultation"
         ctaHref="https://schedule.briancline.co/sailing"
         image="/images/brian-sailing.png"
@@ -163,7 +163,7 @@ export default function Training() {
             <div className="flex justify-center">
               <OptImage
                 src="/images/training/brian-headshot.png"
-                alt="Brian Cline, USCG Licensed Master"
+                alt="Brian Cline, US Sailing Cruising Instructor"
                 className="rounded-2xl shadow-lg max-h-96 object-cover"
               />
             </div>
@@ -179,7 +179,7 @@ export default function Training() {
               </div>
               <p className="mt-6 font-medium text-foreground">
                 — Brian Cline<br />
-                <span className="text-sm text-gray-500">USCG Master · US Sailing Cruising Instructor</span>
+                <span className="text-sm text-gray-500">Former Ferry Captain · US Sailing Cruising Instructor</span>
               </p>
             </div>
           </div>
