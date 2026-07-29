@@ -104,14 +104,41 @@ describe('estimateScale - marker fraction stays within the bar', () => {
   });
 });
 
-describe('estimateScale - organic visitor (no condition inputs)', () => {
-  it('has no prediction and pins the marker at the worst case (unknown => SEV)', () => {
+describe('estimateScale - organic visitor / unknown conditions (no marker, per #415)', () => {
+  it('has no prediction and NO marker — never a worst-case SEV guess', () => {
     const scale = estimateScale({ ...CLEANING, paintAge: '', lastCleaned: '' });
     expect(scale).not.toBeNull();
     expect(scale.hasPrediction).toBe(false);
     expect(scale.fouling).toBeNull();
-    expect(scale.predictedSurcharge).toBe(2.0);
-    expect(scale.predictedPrice).toBeCloseTo(scale.maxPrice);
+    // No matrix cell ⇒ no marker fields at all.
+    expect(scale.predictedSurcharge).toBeNull();
+    expect(scale.predictedPrice).toBeNull();
+    expect(scale.markerFraction).toBeNull();
+    // The span is still honest: light (0%) → SEV (200%).
+    expect(scale.minSurcharge).toBe(0);
+    expect(scale.maxSurcharge).toBe(2.0);
+    expect(scale.maxPrice).toBeGreaterThan(scale.minPrice);
+  });
+
+  it('a partial capture (only paint, or only last-cleaned) is also markerless', () => {
+    const onlyPaint = estimateScale({ ...CLEANING, paintAge: '2+yr', lastCleaned: '' });
+    expect(onlyPaint.hasPrediction).toBe(false);
+    expect(onlyPaint.predictedPrice).toBeNull();
+    expect(onlyPaint.markerFraction).toBeNull();
+    expect(onlyPaint.maxSurcharge).toBe(2.0);
+
+    const onlyCleaned = estimateScale({ ...CLEANING, paintAge: '', lastCleaned: '24+' });
+    expect(onlyCleaned.hasPrediction).toBe(false);
+    expect(onlyCleaned.predictedPrice).toBeNull();
+    expect(onlyCleaned.markerFraction).toBeNull();
+    expect(onlyCleaned.maxSurcharge).toBe(2.0);
+  });
+
+  it('an unknown/garbage condition code does not identify a cell (no marker)', () => {
+    const scale = estimateScale({ ...CLEANING, paintAge: 'nope', lastCleaned: 'whenever' });
+    expect(scale.hasPrediction).toBe(false);
+    expect(scale.predictedPrice).toBeNull();
+    expect(scale.markerFraction).toBeNull();
   });
 });
 
