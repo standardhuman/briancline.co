@@ -379,11 +379,17 @@ export function conditionPriceRange({
 //
 //   • min  = light growth (0% surcharge) — a boat cleaned now bills the floor.
 //   • mark = OUR prediction = the matrix severity for paint × last-cleaned.
-//            Unknown conditions ⇒ SEV (200%), the old single worst-case number.
-//   • max  = one matrix-severity step ABOVE the prediction (SEV 200% caps it).
-//            Better data lowers the prediction, which lowers the ceiling, so the
-//            range NARROWS with information; it never collapses (except when the
-//            minimum floor pins both ends).
+//            Unknown conditions ⇒ NO prediction and NO marker (predictedSurcharge
+//            / predictedPrice / markerFraction are null). "We don't know" is never
+//            rendered as a worst-case guess — this mirrors SailorSkills Pro's #415
+//            rule (lib/pricing.ts calculateEstimateRange): no matrix cell ⇒ no
+//            marker. The bar still spans the full Light–Severe range so it stays
+//            honest; it just has nothing marked on it.
+//   • max  = one matrix-severity step ABOVE the prediction (SEV 200% caps it);
+//            with no prediction the ceiling is SEV (the full span). Better data
+//            lowers the prediction, which lowers the ceiling, so the range NARROWS
+//            with information; it never collapses (except when the minimum floor
+//            pins both ends).
 
 /** Ascending distinct growth-surcharge fractions the fouling matrix can yield
  *  (0 … SEV 2.0). Derived from SEVERITY so it can never drift from the matrix. */
@@ -409,8 +415,13 @@ export function nextSeverityStep(surcharge) {
  *
  * When paintAge/lastCleaned identify a matrix cell, `predictedSurcharge` is that
  * cell's severity and the marker sits proportionally between min and max. Without
- * them (organic visitor) `hasPrediction` is false and the prediction defaults to
- * SEV — callers should render the bar as a full span without a marker.
+ * them (organic visitor, or paint/cleaning captured as "unknown") `hasPrediction`
+ * is false and there is NO prediction: `predictedSurcharge`, `predictedPrice`, and
+ * `markerFraction` are all null, so the bar renders as a bare min→max span with no
+ * marker (the ceiling is still SEV). This mirrors SailorSkills Pro's #415 rule —
+ * unknown conditions never conjure a worst-case marker. A caller that has a
+ * separately-quoted number (the `estimate` URL param) can still mark that value;
+ * the local prediction just isn't invented from nothing.
  */
 export function estimateScale({
   serviceKey = "cleaning",
@@ -444,16 +455,21 @@ export function estimateScale({
   const fouling = hasPrediction ? lookupFouling(paintAge, lastCleaned) : null;
 
   const minSurcharge = 0; // light — always the low end
-  const predictedSurcharge = hasPrediction ? fouling.surcharge : 2.0; // unknown ⇒ SEV
-  const maxSurcharge = Math.max(nextSeverityStep(predictedSurcharge), predictedSurcharge);
+  // Unknown conditions ⇒ NO prediction and NO marker (see the doc + Pro's #415).
+  // The ceiling is still SEV so the span stays honest, but nothing is marked.
+  const SEV_SURCHARGE = SEVERITY_LADDER[SEVERITY_LADDER.length - 1]; // 2.0
+  const predictedSurcharge = hasPrediction ? fouling.surcharge : null;
+  const maxSurcharge = hasPrediction
+    ? Math.max(nextSeverityStep(predictedSurcharge), predictedSurcharge)
+    : SEV_SURCHARGE;
 
   const priceAt = (frac) => {
     const subtotal = subtotalNoGrowth + base * frac;
     return subtotal > 0 && subtotal < RATES.minimum ? RATES.minimum : subtotal;
   };
   const minPrice = priceAt(minSurcharge);
-  const predictedPrice = priceAt(predictedSurcharge);
   const maxPrice = priceAt(maxSurcharge);
+  const predictedPrice = hasPrediction ? priceAt(predictedSurcharge) : null;
   const span = maxPrice - minPrice;
 
   return {
@@ -461,13 +477,17 @@ export function estimateScale({
     hasPrediction,
     fouling,
     minSurcharge,
-    predictedSurcharge,
+    predictedSurcharge, // null when no prediction
     maxSurcharge,
     minPrice,
-    predictedPrice,
+    predictedPrice, // null when no prediction
     maxPrice,
-    // Marker position 0..1 along [minPrice, maxPrice] for the scale bar.
-    markerFraction: span > 0 ? Math.min(1, Math.max(0, (predictedPrice - minPrice) / span)) : 0,
+    // Marker position 0..1 along [minPrice, maxPrice] for the scale bar; null when
+    // there's no prediction so nothing renders a marker from it.
+    markerFraction:
+      hasPrediction && span > 0
+        ? Math.min(1, Math.max(0, (predictedPrice - minPrice) / span))
+        : null,
     single: minPrice === maxPrice,
   };
 }
