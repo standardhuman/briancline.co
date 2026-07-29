@@ -64,7 +64,7 @@ export default function ServiceFooter() {
             </li>
           </ul>
           <p className="text-gray-500 text-xs">
-            USCG Licensed Master · US Sailing Cruising Instructor
+            Former Ferry Captain · US Sailing Cruising Instructor
           </p>
         </div>
       </div>

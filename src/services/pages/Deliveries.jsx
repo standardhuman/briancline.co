@@ -159,13 +159,13 @@ export default function Deliveries() {
     <div>
       <PageMeta
         title="Vessel Deliveries – West Coast & Beyond | Brian Cline"
-        description="Professional vessel delivery along the West Coast and beyond. USCG Licensed Master with extensive coastal and offshore passage experience. Free consultation."
+        description="Professional vessel delivery along the West Coast and beyond. Former high-speed ferry captain with extensive coastal and offshore passage experience. Free consultation."
       />
       <JsonLd data={{
         "@context": "https://schema.org",
         "@type": "Service",
         "name": "Vessel Deliveries - West Coast",
-        "description": "Professional vessel delivery along the US West Coast and beyond. USCG Licensed Master with extensive coastal and offshore passage experience.",
+        "description": "Professional vessel delivery along the US West Coast and beyond. Former high-speed ferry captain with extensive coastal and offshore passage experience.",
         "provider": { "@id": "https://briancline.co/#vessel-management" },
         "areaServed": { "@type": "Place", "name": "US West Coast" },
         "serviceType": "Vessel Delivery",
@@ -184,7 +184,7 @@ export default function Deliveries() {
       <PageHero
         title="Vessel Deliveries"
         subtitle="Safe, professional boat delivery along the West Coast and beyond. Your boat gets there in the same condition it left — or better."
-        credentials="USCG Licensed Master · Experienced offshore and coastal passages"
+        credentials="Former Ferry Captain · Experienced offshore and coastal passages"
         cta="Plan Your Delivery"
         ctaHref="#inquiry"
         image="/images/deliveries/boat.jpg"
