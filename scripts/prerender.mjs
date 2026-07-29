@@ -44,10 +44,11 @@ async function prerender() {
   try {
     const pw = await import('playwright');
     chromium = pw.chromium;
-  } catch {
-    console.log('⚠️  Playwright not available — skipping prerendering.');
-    console.log('   The site will still work but crawlers will see the noscript fallback.');
-    return;
+  } catch (err) {
+    console.error('❌ Playwright not available — cannot prerender.');
+    console.error('   It is a build-critical dependency; crawlers must see real content.');
+    console.error(`   ${err.message}`);
+    process.exit(1);
   }
 
   const servicesHtml = readFileSync(resolve(DIST, 'services.html'), 'utf-8');
@@ -80,8 +81,18 @@ async function prerender() {
   await new Promise(r => server.listen(port, r));
   console.log(`🌐 Prerender server on http://localhost:${port}`);
 
-  const browser = await chromium.launch({ headless: true });
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+  } catch (err) {
+    console.error(`❌ Failed to launch browser: ${err.message}`);
+    console.error('   Ensure the Chromium binary is installed (npx playwright install chromium-headless-shell).');
+    server.close();
+    process.exit(1);
+  }
   const context = await browser.newContext();
+
+  const failures = [];
 
   for (const route of ROUTES) {
     const page = await context.newPage();
@@ -102,6 +113,7 @@ async function prerender() {
       console.log(`   ✓ ${route} → ${route.slice(1)}/index.html`);
     } catch (err) {
       console.log(`   ✗ ${route}: ${err.message}`);
+      failures.push(`${route} — render failed: ${err.message}`);
     }
 
     await page.close();
@@ -109,11 +121,35 @@ async function prerender() {
 
   await browser.close();
   server.close();
+
+  // Verify output: every route must have produced a file with a route-specific
+  // <title>. The generic services.html title means React never rendered.
+  const GENERIC_TITLE = 'Marine Services | Brian Cline';
+  for (const route of ROUTES) {
+    const file = resolve(DIST, route.slice(1), 'index.html');
+    if (!existsSync(file)) {
+      failures.push(`${route} — no output file at ${route.slice(1)}/index.html`);
+      continue;
+    }
+    const match = readFileSync(file, 'utf-8').match(/<title>([^<]*)<\/title>/i);
+    const title = match ? match[1].trim() : '';
+    if (!title) {
+      failures.push(`${route} — missing or empty <title>`);
+    } else if (title === GENERIC_TITLE) {
+      failures.push(`${route} — generic <title> "${title}" (React did not render)`);
+    }
+  }
+
+  if (failures.length > 0) {
+    console.error(`❌ Prerender failed for ${failures.length} route(s):`);
+    for (const f of failures) console.error(`   - ${f}`);
+    process.exit(1);
+  }
+
   console.log(`✅ Prerendered ${ROUTES.length} routes`);
 }
 
 prerender().catch(err => {
-  console.error('Prerender error:', err.message);
-  console.log('Continuing without prerendering — noscript fallback will be used.');
-  process.exit(0); // Don't fail the build
+  console.error('❌ Prerender error:', err.message);
+  process.exit(1);
 });
