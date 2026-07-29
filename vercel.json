@@ -50,13 +50,7 @@
     }
   ],
   "rewrites": [
-    { "source": "/marine", "destination": "/services" },
-    { "source": "/hull-cleaning", "destination": "/services" },
     { "source": "/hull-cleaning/calculator", "destination": "/services" },
-    { "source": "/hull-cleaning/order", "destination": "/services" },
-    { "source": "/boat-detailing", "destination": "/services" },
-    { "source": "/sailing-lessons", "destination": "/services" },
-    { "source": "/sailing-lessons/faq", "destination": "/services" },
-    { "source": "/deliveries", "destination": "/services" }
+    { "source": "/hull-cleaning/order", "destination": "/services" }
   ]
 }
