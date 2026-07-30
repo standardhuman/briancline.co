@@ -316,6 +316,30 @@ test.describe('Hull Cleaning Order Form', () => {
     await expect(scale.getByText(/Our estimate:/)).toHaveCount(0);
   });
 
+  test('marker follows the selects even when a quoted estimate param is present (regression)', async ({ page }) => {
+    // Brian's live repro: capture link with NO condition params but a quoted
+    // estimate equal to the light-growth minimum ($189 on a 42' sail monohull).
+    // The static quote used to win the marker forever, pinning "$189.00" at the
+    // far left while the selects moved the bar around it.
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&frequency=monthly&estimate=189`);
+    await page.waitForSelector('text=Schedule');
+
+    const scale = page.getByTestId('estimate-scale');
+    // No conditions yet ⇒ no marker (never the pinned $189 pill).
+    await expect(scale.getByText(/Our estimate:/)).toHaveCount(0);
+
+    // Customer picks 1-1.5yr / 9-12 => Heavy => $283.50 (the LIVE prediction),
+    // NOT the $189 quote.
+    await page.getByTestId('paint-age-select').selectOption('1-1.5yr');
+    await page.getByTestId('last-cleaned-select').selectOption('9-12');
+    await expect(scale.getByText(/Our estimate: \$283\.50/)).toBeVisible();
+    await expect(scale.getByText(/Our estimate: \$189\.00/)).toHaveCount(0);
+
+    // Clearing paint back to "Not sure" removes the marker (no $189 pill returns).
+    await page.getByTestId('paint-age-select').selectOption('');
+    await expect(scale.getByText(/Our estimate:/)).toHaveCount(0);
+  });
+
   test('condition selects prefill from URL params (field-capture handoff)', async ({ page }) => {
     await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=sailboat&hull=monohull&frequency=monthly&paintAge=2%2Byr&lastCleaned=24%2B`);
     await page.waitForSelector('text=Schedule');

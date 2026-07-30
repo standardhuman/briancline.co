@@ -9,6 +9,7 @@ import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
 import { cn, formatCurrency } from "../lib/utils";
 import { SERVICES, conditionPriceRange, estimateScale, PAINT_AGE_OPTIONS, LAST_CLEANED_OPTIONS } from "../lib/diving-calculator";
+import { resolveScaleMarkerPrice } from "../lib/order-marker";
 import PageMeta from "../components/PageMeta";
 import ConditionsPricing from "../components/ConditionsPricing";
 import EstimateScale from "../components/EstimateScale";
@@ -402,8 +403,19 @@ function OrderForm({ searchParams, navigate }) {
   // Graphical min → worst-case scale (mirrors Pro's calculateEstimateRange). The
   // marker prefers the estimate we actually quoted (the URL param) so the page
   // shows the same number the customer was texted; it falls back to the local
-  // matrix prediction for organic visitors.
+  // matrix prediction as the customer narrows the conditions.
   const estScale = isCleaningService ? estimateScale(conditionInputs) : null;
+  // The quoted `estimate` param was computed for the URL's conditions. Keep it as
+  // the marker ONLY while the selects still match those conditions AND a
+  // prediction exists; once the customer edits the selects, the LIVE local
+  // prediction drives the marker (so it moves with them), and "Not sure" hides it.
+  const conditionsMatchQuote =
+    form.paintAge === initialPaintAge && form.lastCleaned === initialLastCleaned;
+  const scaleMarkerPrice = resolveScaleMarkerPrice({
+    estimateAmount,
+    hasPrediction: !!estScale?.hasPrediction,
+    conditionsMatchQuote,
+  });
 
   // Optimistic promo preview — the real discount is validated + applied server-side
   // by the billing engine at checkout. This line is a promise, not the price math;
@@ -940,7 +952,7 @@ function OrderForm({ searchParams, navigate }) {
           {(estScale || conditionRange) && (
             <div className="mt-4 rounded-lg border border-gray-100 bg-white p-4 space-y-4">
               {estScale && (
-                <EstimateScale scale={estScale} markerPrice={estimateAmount} />
+                <EstimateScale scale={estScale} markerPrice={scaleMarkerPrice} />
               )}
               {estScale && conditionRange && <div className="border-t border-gray-100" />}
               {conditionRange && <ConditionsPricing range={conditionRange} />}
