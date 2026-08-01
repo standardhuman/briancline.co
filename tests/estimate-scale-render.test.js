@@ -48,13 +48,40 @@ function markerPct(html) {
 }
 
 describe('EstimateScale - endpoint labels', () => {
-  it('labels the ends "minimal growth" and "severe growth"', () => {
+  it('left end is always "minimal growth"; right end names the tier the ceiling reaches', () => {
     const scale = estimateScale({ ...CLEANING, paintAge: '1.5-2yr', lastCleaned: '13-24' });
     const html = render({ scale, markerPrice: 284 });
     expect(html).toContain('minimal growth');
-    expect(html).toContain('severe growth');
     expect(html).not.toContain('Freshly cleaned');
     expect(html).not.toContain('Worst case');
+  });
+
+  it('a light/minimal prediction labels the right end "moderate-heavy growth", not "severe"', () => {
+    // <6mo / <2 => Minimal (0% growth). The narrowed ceiling is one step up
+    // (Moderate-Heavy), so the endpoint must NOT read "severe".
+    const scale = estimateScale({ ...CLEANING, paintAge: '<6mo', lastCleaned: '<2' });
+    expect(scale.maxLabel).toBe('Moderate-Heavy');
+    const html = render({ scale });
+    expect(html).toContain('moderate-heavy growth');
+    expect(html).not.toContain('severe growth');
+  });
+
+  it('an already-severe prediction still labels the right end "severe growth"', () => {
+    // 1.5-2yr / 13-24 => Severe (S); one step up is the SEV maximum, which
+    // collapses to plain "severe" — the honest true worst case.
+    const scale = estimateScale({ ...CLEANING, paintAge: '1.5-2yr', lastCleaned: '13-24' });
+    expect(scale.maxLabel).toBe('Severe (Maximum)');
+    const html = render({ scale, markerPrice: 284 });
+    expect(html).toContain('severe growth');
+    expect(html).not.toContain('moderate-heavy growth');
+  });
+
+  it('with no prediction the right end falls back to "severe growth" (full span ceiling)', () => {
+    const scale = estimateScale({ ...CLEANING, paintAge: '', lastCleaned: '' });
+    expect(scale.hasPrediction).toBe(false);
+    const html = render({ scale });
+    expect(html).toContain('minimal growth');
+    expect(html).toContain('severe growth');
   });
 });
 

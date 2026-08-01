@@ -436,6 +436,20 @@ export function nextSeverityStep(surcharge) {
   return SEVERITY_LADDER[SEVERITY_LADDER.length - 1];
 }
 
+/** The severity label for a growth surcharge. Snaps to the nearest ladder step
+ *  at or below `surcharge` (so an off-ladder value still names a real matrix
+ *  severity), then returns the first SEVERITY entry at that step in matrix
+ *  order — so the shared-0 cells resolve to "Minimal", not the M-MOD/MOD ones. */
+export function growthLabelForSurcharge(surcharge) {
+  let step = SEVERITY_LADDER[0];
+  for (const s of SEVERITY_LADDER) {
+    if (s <= surcharge) step = s;
+    else break;
+  }
+  const match = Object.values(SEVERITY).find((sev) => sev.surcharge === step);
+  return match ? match.label : SEVERITY.MIN.label;
+}
+
 /**
  * Build the min → predicted → worst-case scale for a hull cleaning. Returns null
  * for any non-cleaning service or an unusable boat length. Growth is the only
@@ -509,6 +523,10 @@ export function estimateScale({
     minSurcharge,
     predictedSurcharge, // null when no prediction
     maxSurcharge,
+    // The actual severity tier the ceiling names — one step above the prediction
+    // (the narrowing), or SEV when there's no prediction. Lets the scale label the
+    // right endpoint honestly instead of always saying "severe".
+    maxLabel: growthLabelForSurcharge(maxSurcharge),
     minPrice,
     predictedPrice, // null when no prediction
     maxPrice,
