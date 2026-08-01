@@ -33,6 +33,13 @@ export default function EstimateScale({ scale, markerPrice, className }) {
       : scale.markerFraction;
   const pct = Math.round(markerFraction * 100);
 
+  // The right endpoint names the actual tier the ceiling reaches (one step above
+  // the prediction), not always "severe". "Severe (Maximum)" collapses to plain
+  // "severe" — that IS the true worst case, so it reads honestly there.
+  const maxLabel = (
+    scale.maxLabel === "Severe (Maximum)" ? "Severe" : scale.maxLabel || "Severe"
+  ).toLowerCase();
+
   return (
     <div className={cn("w-full", className)} data-testid="estimate-scale">
       <p className="font-medium text-gray-900 text-sm mb-1">Where your estimate falls</p>
@@ -85,7 +92,7 @@ export default function EstimateScale({ scale, markerPrice, className }) {
           <span className="font-semibold text-gray-700 tabular-nums">
             {formatCurrency(scale.maxPrice)}
           </span>
-          <span className="text-gray-400"> · severe growth</span>
+          <span className="text-gray-400"> · {maxLabel} growth</span>
         </p>
       </div>
     </div>
