@@ -697,17 +697,6 @@ function OrderForm({ searchParams, navigate }) {
       </div>
 
       <div className="max-w-6xl mx-auto px-6 pb-16">
-      {/* Mobile: Profile card at top */}
-      <div className="lg:hidden mb-6">
-        <ProfileCard
-          form={form}
-          service={service}
-          estimateAmount={estimateAmount}
-          isItemRecovery={isItemRecovery}
-          showFrequency={showFrequency}
-        />
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
       {/* Left: Form */}
       <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-6">

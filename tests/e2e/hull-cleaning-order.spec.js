@@ -170,6 +170,52 @@ test.describe('Hull Cleaning Calculator UI', () => {
 // via Vercel rewrites. In dev mode, the Vite middleware handles it.
 
 test.describe('Hull Cleaning Order Form', () => {
+  test('shows the profile card only beside the form on desktop', async ({ page }) => {
+    const checkoutUrl = `${ORDER_BASE}?service=cleaning&length=35&type=sailboat&hull=monohull&frequency=quarterly&estimate=217&propellers=1&paintAge=%3C6mo&lastCleaned=7-8&anodes=0`;
+
+    await page.route('**/functions/v1/get-stripe-config', (route) => route.fulfill({
+      json: { publishableKey: 'pk_test_synthetic_responsive_checkout_only' },
+    }));
+    await page.route('https://js.stripe.com/**', (route) => route.fulfill({
+      contentType: 'application/javascript',
+      body: `
+        window.Stripe = function Stripe() {
+          const element = {
+            mount() {},
+            destroy() {},
+            on() {},
+            off() {},
+            update() {},
+          };
+          return {
+            elements() {
+              return {
+                create() { return element; },
+                update() {},
+              };
+            },
+            createToken() { return Promise.resolve({}); },
+            createPaymentMethod() { return Promise.resolve({}); },
+            confirmCardPayment() { return Promise.resolve({}); },
+            _registerWrapper() {},
+            registerAppInfo() {},
+          };
+        };
+        window.Stripe._registerWrapper = function () {};
+      `,
+    }));
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(checkoutUrl);
+    await page.waitForSelector('text=Schedule');
+
+    await expect(page.getByText('Estimated cost: $217.00', { exact: true })).toBeVisible();
+    await expect(page.locator('h3:visible').filter({ hasText: 'Your Boat' })).toHaveCount(0);
+
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(page.locator('h3:visible').filter({ hasText: 'Your Boat' })).toHaveCount(1);
+  });
+
   test('should pre-fill form from URL params', async ({ page }) => {
     await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=powerboat&hull=catamaran&frequency=monthly&estimate=250`);
     await page.waitForSelector('text=Schedule');
