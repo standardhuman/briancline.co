@@ -428,3 +428,19 @@ test.describe('Full Order Flow (Stripe Test Mode)', () => {
 // Note: Navigation from calculator to order form is tested via unit tests
 // (URL parameter passing) since React Router client-side navigation in 
 // a Vite MPA setup is hard to test with Playwright's URL-based assertions.
+
+test.describe('Legal documents', () => {
+  test('serves Terms of Service on direct navigation', async ({ page }) => {
+    const response = await page.goto('/terms');
+    expect(response?.ok()).toBe(true);
+    await expect(page.getByRole('heading', { name: 'SailorSkills Terms of Service' })).toBeVisible();
+    await expect(page).toHaveTitle('Terms of Service — SailorSkills');
+  });
+
+  test('serves recurring authorization on direct navigation', async ({ page }) => {
+    const response = await page.goto('/recurring-authorization');
+    expect(response?.ok()).toBe(true);
+    await expect(page.getByRole('heading', { name: 'Recurring Charge Authorization' })).toBeVisible();
+    await expect(page).toHaveTitle('Recurring Charge Authorization — SailorSkills');
+  });
+});

@@ -26,6 +26,8 @@ const ROUTES = [
   '/sailing-lessons',
   '/sailing-lessons/faq',
   '/deliveries',
+  '/terms',
+  '/recurring-authorization',
 ];
 
 const MIME = {
