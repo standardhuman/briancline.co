@@ -7,6 +7,7 @@ function serviceRouteRewrite() {
   const serviceRoutes = [
     '/marine', '/hull-cleaning', '/hull-cleaning/calculator', '/hull-cleaning/order',
     '/boat-detailing', '/sailing-lessons', '/sailing-lessons/faq', '/deliveries',
+    '/terms', '/recurring-authorization',
   ]
   return {
     name: 'service-route-rewrite',

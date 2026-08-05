@@ -8,6 +8,10 @@ import {
   type LeadFormData,
 } from '../_shared/lead-validation.ts'
 import { normalizeLeadBoatId, boatLookupPlan } from '../_shared/boat-match.ts'
+import {
+  resolveProviderOwnerUserId,
+  type ProviderOwnerLookup,
+} from '../_shared/provider-resolution.ts'
 
 const stripeMode = Deno.env.get('STRIPE_MODE') || 'test'
 const stripeSecretKey = stripeMode === 'live'
@@ -91,39 +95,30 @@ async function loadAllowedMarinas(supabase: ReturnType<typeof createClient>): Pr
   }
 }
 
-// Resolve the servicing provider's auth.uid — which is `service_providers.owner_user_id`,
-// NOT `service_providers.id`. This is the dual-referent gotcha: service_orders.provider_id
-// and boats.provider_id key on the provider's owner_user_id (auth.uid), because that's
-// what Pro's provider-scoped queries filter on. Stamping the wrong id makes the order
-// invisible to every provider. Derive from context — never hardcode a UUID — so this
-// generalizes when more providers come online.
-async function resolveProviderOwnerUserId(
-  supabase: any,
-  payload: any,
-  formData: any,
-): Promise<string | null> {
-  // 1. Explicit provider context from the storefront. Accepts either the provider's
-  //    owner_user_id OR service_providers.id, and normalizes to owner_user_id.
-  const hint = payload?.providerId || payload?.provider_id || formData?.providerId || null
-  if (hint) {
-    const { data } = await supabase
-      .from('service_providers').select('owner_user_id')
-      .or(`owner_user_id.eq.${hint},id.eq.${hint}`)
-      .not('owner_user_id', 'is', null).limit(1).maybeSingle()
-    if (data?.owner_user_id) return data.owner_user_id as string
+function providerOwnerLookup(supabase: any): ProviderOwnerLookup {
+  const uniqueOwner = (rows: Array<{ owner_user_id: string }> | null): string | null =>
+    rows?.length === 1 ? rows[0].owner_user_id : null
+
+  return {
+    async findEligibleOwnerById(id: string): Promise<string | null> {
+      const { data, error } = await supabase
+        .from('service_providers').select('owner_user_id')
+        .or(`owner_user_id.eq.${id},id.eq.${id}`)
+        .eq('pro_enabled', true).eq('is_active', true)
+        .not('owner_user_id', 'is', null).limit(2)
+      if (error) throw error
+      return uniqueOwner(data)
+    },
+
+    async findSoleEligibleOwner(): Promise<string | null> {
+      const { data, error } = await supabase
+        .from('service_providers').select('owner_user_id')
+        .eq('pro_enabled', true).eq('is_active', true)
+        .not('owner_user_id', 'is', null).limit(2)
+      if (error) throw error
+      return uniqueOwner(data)
+    },
   }
-  // 2. Deployment-level override (configuration, not a hardcoded UUID in the logic).
-  const envOwner = Deno.env.get('DEFAULT_PROVIDER_OWNER_USER_ID')
-  if (envOwner) return envOwner
-  // 3. Fall back to the sole active Pro provider. Correct while exactly one provider
-  //    backs this storefront; if more than one exists we return null so the caller
-  //    fails closed rather than guessing which provider owns the order.
-  const { data: active } = await supabase
-    .from('service_providers').select('owner_user_id')
-    .eq('pro_enabled', true).eq('is_active', true)
-    .not('owner_user_id', 'is', null).limit(2)
-  if (active && active.length === 1) return active[0].owner_user_id as string
-  return null
 }
 
 serve(async (req) => {
@@ -224,9 +219,14 @@ serve(async (req) => {
     // A provider-less order (provider_id = NULL) is invisible to every provider in the
     // Pro Orders queue, so it must never be created. This guard is the fix for the
     // regression where card-on-file orders were stamped with provider_id = NULL.
-    const providerOwnerUserId = await resolveProviderOwnerUserId(supabase, payload, formData)
+    const providerResolution = await resolveProviderOwnerUserId(providerOwnerLookup(supabase), {
+      configuredOwnerUserId: Deno.env.get('DEFAULT_PROVIDER_OWNER_USER_ID'),
+      payload,
+      formData,
+    })
+    const providerOwnerUserId = providerResolution.ownerUserId
     if (!providerOwnerUserId) {
-      console.error('[create-payment-intent] Could not resolve servicing provider; refusing to create a provider-unstamped order')
+      console.error(`[create-payment-intent] Provider resolution failed: ${providerResolution.source}; refusing provider-unstamped order`)
       return new Response(JSON.stringify({ error: 'Could not determine the servicing provider for this order. Please try again or contact support.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
     }
