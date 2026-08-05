@@ -27,7 +27,7 @@
 
 **Interfaces:**
 - Consumes: the existing `/hull-cleaning/order` query-string contract and Tailwind `lg` breakpoint.
-- Produces: a checkout that shows no visible `Your Boat` heading at 390×844, preserves `Estimated cost: $217`, and shows the existing `Your Boat` sidebar at 1280×900.
+- Produces: a checkout that shows no visible `Your Boat` heading at 390×844, preserves `Estimated cost: $217.00`, and shows the existing `Your Boat` sidebar at 1280×900.
 
 - [ ] **Step 1: Write the failing responsive browser test**
 
@@ -41,7 +41,7 @@ test('shows the profile card only beside the form on desktop', async ({ page }) 
   await page.goto(checkoutUrl);
   await page.waitForSelector('text=Schedule');
 
-  await expect(page.getByText('Estimated cost: $217', { exact: true })).toBeVisible();
+  await expect(page.getByText('Estimated cost: $217.00', { exact: true })).toBeVisible();
   await expect(page.locator('h3:visible').filter({ hasText: 'Your Boat' })).toHaveCount(0);
 
   await page.setViewportSize({ width: 1280, height: 900 });
