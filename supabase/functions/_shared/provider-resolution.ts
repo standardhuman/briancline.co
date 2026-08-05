@@ -26,6 +26,10 @@ function nonEmptyString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+}
+
 export async function resolveProviderOwnerUserId(
   lookup: ProviderOwnerLookup,
   input: ProviderResolutionInput,
@@ -33,6 +37,7 @@ export async function resolveProviderOwnerUserId(
   try {
     const configured = nonEmptyString(input.configuredOwnerUserId)
     if (configured) {
+      if (!isUuid(configured)) return { ownerUserId: null, source: 'invalid-config' }
       const ownerUserId = await lookup.findEligibleOwnerById(configured)
       return ownerUserId
         ? { ownerUserId, source: 'configured' }
@@ -44,7 +49,7 @@ export async function resolveProviderOwnerUserId(
       ?? input.payload?.provider_id
       ?? input.formData?.providerId,
     )
-    if (hint) {
+    if (hint && isUuid(hint)) {
       const ownerUserId = await lookup.findEligibleOwnerById(hint)
       if (ownerUserId) return { ownerUserId, source: 'request' }
     }

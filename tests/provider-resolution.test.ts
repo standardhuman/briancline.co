@@ -40,6 +40,22 @@ describe('resolveProviderOwnerUserId', () => {
     expect(soleLookupCalled).toBe(false)
   })
 
+  test('rejects a malformed configured owner without querying or falling back', async () => {
+    let idLookupCalled = false
+    let soleLookupCalled = false
+    const result = await resolveProviderOwnerUserId(lookup({
+      findEligibleOwnerById: async () => { idLookupCalled = true; return ownerB },
+      findSoleEligibleOwner: async () => { soleLookupCalled = true; return ownerB },
+    }), {
+      configuredOwnerUserId: 'not-a-uuid',
+      payload: {},
+      formData: {},
+    })
+    expect(result).toEqual({ ownerUserId: null, source: 'invalid-config' })
+    expect(idLookupCalled).toBe(false)
+    expect(soleLookupCalled).toBe(false)
+  })
+
   test('validates a legacy request hint when no server default exists', async () => {
     const result = await resolveProviderOwnerUserId(lookup({
       findEligibleOwnerById: async (id) => id === ownerB ? ownerB : null,
@@ -49,6 +65,20 @@ describe('resolveProviderOwnerUserId', () => {
       formData: {},
     })
     expect(result).toEqual({ ownerUserId: ownerB, source: 'request' })
+  })
+
+  test('does not query by ID for request hints containing PostgREST metacharacters', async () => {
+    let idLookupCalled = false
+    const result = await resolveProviderOwnerUserId(lookup({
+      findEligibleOwnerById: async () => { idLookupCalled = true; return ownerB },
+      findSoleEligibleOwner: async () => ownerA,
+    }), {
+      configuredOwnerUserId: null,
+      payload: { providerId: `${ownerB},id.eq.${ownerA})` },
+      formData: {},
+    })
+    expect(result).toEqual({ ownerUserId: ownerA, source: 'sole-active' })
+    expect(idLookupCalled).toBe(false)
   })
 
   test('uses the sole eligible provider only when no configured owner or hint exists', async () => {
