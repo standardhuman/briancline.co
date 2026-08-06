@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && sh scripts/install-browser-deps.sh && npx playwright install chromium-headless-shell && node scripts/prerender.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "keywords": [],
   "author": "Brian Cline",
