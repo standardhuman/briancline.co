@@ -15,6 +15,11 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@12.18.0?target=deno'
 import { Resend } from 'https://esm.sh/resend@2.0.0'
+import {
+  interpretSendSmsResponse,
+  notifyOperatorForSuccessfulOrder,
+  type SendSmsOutcome,
+} from '../_shared/new-order-notification.ts'
 
 const stripeMode = Deno.env.get('STRIPE_MODE') || 'test'
 const stripeSecretKey = stripeMode === 'live'
@@ -37,9 +42,20 @@ const resend = new Resend(
   Deno.env.get('RESEND_API_KEY_DIVING') ?? Deno.env.get('RESEND_API_KEY') ?? '',
 )
 
+const supabaseUrl = (Deno.env.get('SUPABASE_URL') ?? '').trim()
+const serviceRoleKey = (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '').trim()
+const orderNotifyPhoneE164 = (Deno.env.get('ORDER_NOTIFY_PHONE_E164') ?? '').trim()
+const defaultProviderOwnerUserId = (Deno.env.get('DEFAULT_PROVIDER_OWNER_USER_ID') ?? '').trim()
+const operatorSmsConfigValid = Boolean(
+  supabaseUrl &&
+  serviceRoleKey &&
+  defaultProviderOwnerUserId &&
+  /^\+[1-9]\d{7,14}$/.test(orderNotifyPhoneE164)
+)
+
 const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+  supabaseUrl,
+  serviceRoleKey,
 )
 
 serve(async (req) => {
@@ -70,7 +86,7 @@ serve(async (req) => {
   try {
     switch (event.type) {
       case 'setup_intent.succeeded':
-        await handleSetupIntentSucceeded(event.data.object as Stripe.SetupIntent)
+        await handleSetupIntentSucceeded(event.data.object as Stripe.SetupIntent, event.livemode)
         break
       default:
         console.log(`Ignoring unhandled event type: ${event.type}`)
@@ -86,7 +102,10 @@ serve(async (req) => {
   })
 })
 
-async function handleSetupIntentSucceeded(setupIntent: Stripe.SetupIntent): Promise<void> {
+async function handleSetupIntentSucceeded(
+  setupIntent: Stripe.SetupIntent,
+  stripeLivemode: boolean,
+): Promise<void> {
   const { data: authRow, error: authErr } = await supabase
     .from('order_authorizations')
     .select('id, customer_id, service_order_id, is_recurring, terms_version, recurring_terms_version, authorization_ip, user_agent')
@@ -172,6 +191,63 @@ async function handleSetupIntentSucceeded(setupIntent: Stripe.SetupIntent): Prom
     console.log(`Confirmation email already sent for order ${authRow.service_order_id} (idempotent skip on retry of ${setupIntent.id})`)
   }
 
+  if (authRow.service_order_id) {
+    if (!operatorSmsConfigValid) {
+      console.warn('Operator SMS configuration is missing or invalid', {
+        orderId: authRow.service_order_id,
+      })
+    } else {
+      try {
+        const { data: orderForSms, error: smsLookupError } = await supabase
+          .from('service_orders')
+          .select('id, provider_id, order_number, service_type, is_test, boats(name)')
+          .eq('id', authRow.service_order_id)
+          .eq('provider_id', defaultProviderOwnerUserId)
+          .maybeSingle()
+
+        if (smsLookupError) {
+          console.warn('Operator SMS order lookup failed', { orderId: authRow.service_order_id })
+        } else if (
+          !orderForSms ||
+          typeof orderForSms.provider_id !== 'string' ||
+          !orderForSms.provider_id.trim() ||
+          orderForSms.provider_id !== defaultProviderOwnerUserId
+        ) {
+          console.warn('Operator SMS order is missing or outside the configured provider', {
+            orderId: authRow.service_order_id,
+          })
+        } else {
+          const boats = orderForSms.boats as { name?: string | null } | Array<{ name?: string | null }> | null
+          const boat = Array.isArray(boats) ? boats[0] : boats
+          await notifyOperatorForSuccessfulOrder({
+            orderId: orderForSms.id,
+            providerId: orderForSms.provider_id,
+            orderNumber: orderForSms.order_number,
+            boatName: boat?.name ?? null,
+            serviceLabel: serviceLabel(orderForSms.service_type),
+            isTest: orderForSms.is_test === true,
+            stripeLivemode,
+          }, {
+            recipient: orderNotifyPhoneE164,
+            providerOwnerUserId: defaultProviderOwnerUserId,
+            senderConfigured: true,
+            claim: claimOperatorSms,
+            release: releaseOperatorSms,
+            send: sendOperatorSms,
+            warn(message, context) {
+              console.warn(message, context)
+            },
+          })
+        }
+      } catch (error) {
+        console.warn('Operator SMS notification failed with a retained outcome', {
+          orderId: authRow.service_order_id,
+          errorClass: error instanceof Error ? error.constructor.name : typeof error,
+        })
+      }
+    }
+  }
+
   if (authRow.is_recurring) {
     await supabase.from('customers').update({
       auto_charge_enabled: true, auto_charge_enabled_at: new Date().toISOString(),
@@ -180,6 +256,75 @@ async function handleSetupIntentSucceeded(setupIntent: Stripe.SetupIntent): Prom
   }
 
   console.log(`setup_intent.succeeded handled for ${setupIntent.id}: customer ${authRow.customer_id}, pm ${paymentMethodId} (${card?.brand} ····${card?.last4}), recurring=${authRow.is_recurring}`)
+}
+
+async function claimOperatorSms(
+  orderId: string,
+  providerOwnerUserId: string,
+): Promise<string | null> {
+  const claimToken = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('service_orders')
+    .update({ operator_sms_sent_at: claimToken })
+    .eq('id', orderId)
+    .eq('provider_id', providerOwnerUserId)
+    .is('operator_sms_sent_at', null)
+    .select('id')
+    .maybeSingle()
+  if (error) throw new Error(`operator SMS claim failed: ${error.message}`)
+  return data ? claimToken : null
+}
+
+async function releaseOperatorSms(
+  orderId: string,
+  providerOwnerUserId: string,
+  claimToken: string,
+): Promise<void> {
+  const { data, error } = await supabase
+    .from('service_orders')
+    .update({ operator_sms_sent_at: null })
+    .eq('id', orderId)
+    .eq('provider_id', providerOwnerUserId)
+    .eq('operator_sms_sent_at', claimToken)
+    .select('id')
+    .maybeSingle()
+  if (error) throw new Error(`operator SMS release failed: ${error.message}`)
+  if (!data) throw new Error('operator SMS release matched no retained claim')
+}
+
+async function sendOperatorSms(to: string, body: string): Promise<SendSmsOutcome> {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-sms`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(10_000),
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ to, body }),
+    })
+    const raw = await response.text()
+    let json: { success?: boolean; sms_sent?: boolean; mock?: boolean; error?: string } | null = null
+    try {
+      json = JSON.parse(raw)
+    } catch {
+      return 'ambiguous'
+    }
+    return interpretSendSmsResponse(response.status, json)
+  } catch {
+    return 'ambiguous'
+  }
+}
+
+function serviceLabel(serviceType: unknown): string {
+  const labels: Record<string, string> = {
+    'Cleaning & Anodes': 'Cleaning & Anodes',
+    'Underwater Inspection': 'Underwater Inspection',
+    'Item Recovery': 'Item Recovery',
+    'Propeller Service': 'Propeller Service',
+    'Anodes Only': 'Anodes Only',
+  }
+  return typeof serviceType === 'string' ? labels[serviceType] ?? 'Service' : 'Service'
 }
 
 async function sendOrderEmails(order: any, cardBrand: string | null, cardLast4: string | null): Promise<void> {

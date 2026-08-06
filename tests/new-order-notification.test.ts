@@ -211,3 +211,167 @@ it('contains send failures, retains the claim, and warns with only the error cla
   expect(state.warnings[0][1]).toMatchObject({ errorClass: 'TypeError' });
   expect(JSON.stringify(state.warnings)).not.toContain('secret transport detail');
 });
+
+it('duplicate successful webhooks send once', async () => {
+  const state = { claimed: false, sends: 0 };
+  const { deps } = fakeDeps({
+    claim: async () => state.claimed ? null : (state.claimed = true, 'claim-1'),
+    send: async () => (state.sends += 1, 'sent'),
+  });
+
+  await notifyOperatorForSuccessfulOrder(liveOrder, deps);
+  await notifyOperatorForSuccessfulOrder(liveOrder, deps);
+
+  expect(state.sends).toBe(1);
+});
+
+it('explicit no-send releases only its own claim', async () => {
+  const released: Array<[string, string, string]> = [];
+  const { deps } = fakeDeps({
+    claim: async () => 'claim-1',
+    send: async () => 'not_sent',
+    release: async (orderId, providerId, token) => { released.push([orderId, providerId, token]); },
+  });
+
+  await expect(notifyOperatorForSuccessfulOrder(liveOrder, deps)).resolves.toMatchObject({ status: 'not_sent' });
+  expect(released).toEqual([['order-1', 'provider-owner-1', 'claim-1']]);
+});
+
+it('ambiguous transport failure retains its claim', async () => {
+  const releases: unknown[] = [];
+  const { deps } = fakeDeps({
+    claim: async () => 'claim-1',
+    send: async () => { throw new TypeError('network failure'); },
+    release: async (...args) => { releases.push(args); },
+  });
+
+  await expect(notifyOperatorForSuccessfulOrder(liveOrder, deps)).resolves.toMatchObject({ status: 'uncertain' });
+  expect(releases).toEqual([]);
+});
+
+it('retains its claim for timeout and every ambiguous send-sms response shape', async () => {
+  const ambiguousSenders: Array<() => Promise<SendSmsOutcome>> = [
+    async () => { throw Object.assign(new Error('timed out'), { name: 'AbortError' }); },
+    async () => interpretSendSmsResponse(200, null),
+    async () => interpretSendSmsResponse(500, {
+      success: false,
+      sms_sent: false,
+      mock: false,
+      error: 'Failed to reach Twilio',
+    }),
+    async () => interpretSendSmsResponse(200, { sms_sent: false }),
+    async () => interpretSendSmsResponse(503, { success: false, error: 'temporarily unavailable' }),
+  ];
+
+  for (const send of ambiguousSenders) {
+    const { deps, state } = fakeDeps({ claim: async () => 'claim-1', send });
+    const result = await notifyOperatorForSuccessfulOrder(liveOrder, deps);
+    expect(result.status).toBe('uncertain');
+    expect(state.releases).toEqual([]);
+  }
+});
+
+it('releases its exact claim for each pinned definitive send-sms rejection', async () => {
+  const definitiveSenders: Array<() => Promise<SendSmsOutcome>> = [
+    async () => interpretSendSmsResponse(200, { success: true, sms_sent: true, mock: true }),
+    async () => interpretSendSmsResponse(429, { error: 'rate limited' }),
+    async () => interpretSendSmsResponse(200, {
+      success: false,
+      sms_sent: false,
+      mock: false,
+      error: 'Twilio error: 400',
+    }),
+  ];
+
+  for (const send of definitiveSenders) {
+    const { deps, state } = fakeDeps({ claim: async () => 'claim-1', send });
+    await expect(notifyOperatorForSuccessfulOrder(liveOrder, deps)).resolves.toMatchObject({ status: 'not_sent' });
+    expect(state.releases).toEqual([['order-1', 'provider-owner-1', 'claim-1']]);
+  }
+});
+
+it.each([
+  ['database error', 'operator SMS release failed: database unavailable'],
+  ['token mismatch', 'operator SMS release matched no retained claim'],
+])('retains a claim after a %s during release and blocks a later retry', async (_label, releaseMessage) => {
+  const state = { claimed: false, sends: 0, releases: 0 };
+  const { deps } = fakeDeps({
+    claim: async () => state.claimed ? null : (state.claimed = true, 'claim-1'),
+    send: async () => (state.sends += 1, 'not_sent'),
+    release: async () => {
+      state.releases += 1;
+      throw new Error(releaseMessage);
+    },
+  });
+
+  await expect(notifyOperatorForSuccessfulOrder(liveOrder, deps)).resolves.toEqual({
+    status: 'uncertain',
+    reason: 'release',
+  });
+  await expect(notifyOperatorForSuccessfulOrder(liveOrder, deps)).resolves.toEqual({
+    status: 'skipped',
+    reason: 'duplicate',
+  });
+  expect(state).toEqual({ claimed: true, sends: 1, releases: 1 });
+});
+
+it('foreign or missing configured providers never claim or send', async () => {
+  for (const [input, overrides] of [
+    [{ ...liveOrder, providerId: 'foreign-provider' }, {}],
+    [liveOrder, { providerOwnerUserId: null }],
+  ] as Array<[OperatorOrderSmsInput, Partial<OperatorSmsDeps>]>) {
+    const { deps, state } = fakeDeps(overrides);
+    await notifyOperatorForSuccessfulOrder(input, deps);
+    expect(state.claims).toEqual([]);
+    expect(state.sends).toEqual([]);
+  }
+});
+
+it('keeps email and SMS claims independent across a rejected delivery and replay', async () => {
+  const state = {
+    confirmationEmailClaim: null as string | null,
+    confirmationEmailWrites: [] as Array<string | null>,
+    emailSends: 0,
+    smsClaim: null as string | null,
+    smsAttempts: 0,
+    confirmedSms: 0,
+  };
+
+  const deps: OperatorSmsDeps = {
+    ...fakeDeps().deps,
+    async claim() {
+      if (state.smsClaim) return null;
+      state.smsClaim = `sms-claim-${state.smsAttempts + 1}`;
+      return state.smsClaim;
+    },
+    async release(_orderId, _providerOwnerUserId, claimToken) {
+      if (state.smsClaim !== claimToken) throw new Error('token mismatch');
+      state.smsClaim = null;
+    },
+    async send() {
+      state.smsAttempts += 1;
+      if (state.smsAttempts === 1) return 'not_sent';
+      state.confirmedSms += 1;
+      return 'sent';
+    },
+  };
+
+  async function handleSuccessfulEvent(): Promise<void> {
+    if (state.confirmationEmailClaim === null) {
+      state.confirmationEmailClaim = 'email-claim-1';
+      state.confirmationEmailWrites.push('email-claim-1');
+      state.emailSends += 1;
+    }
+    await notifyOperatorForSuccessfulOrder(liveOrder, deps);
+  }
+
+  await handleSuccessfulEvent();
+  await handleSuccessfulEvent();
+
+  expect(state.emailSends).toBe(1);
+  expect(state.smsAttempts).toBe(2);
+  expect(state.confirmedSms).toBe(1);
+  expect(state.confirmationEmailWrites).toEqual(['email-claim-1']);
+  expect(state.confirmationEmailWrites).not.toContain(null);
+  expect(state.smsClaim).toBe('sms-claim-2');
+});
