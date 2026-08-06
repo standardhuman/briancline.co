@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { escapeHtml } from './_escape-html.js';
 import { emailLayout, detailRow, sectionHeading } from './_email-layout.js';
 import { requireResendSuccess } from './_resend-result.js';
 
@@ -17,48 +18,63 @@ export default async function handler(req, res) {
   }
 
   const servicesList = services || 'None specified';
+  const html = {
+    name: escapeHtml(name),
+    email: escapeHtml(email),
+    phone: escapeHtml(phone),
+    marina: escapeHtml(marina),
+    dockSlip: escapeHtml(dockSlip),
+    boatName: escapeHtml(boatName),
+    boatLength: escapeHtml(boatLength),
+    servicesList: escapeHtml(servicesList),
+    notes: escapeHtml(notes).replace(/\n/g, '<br>'),
+    anythingElse: escapeHtml(anythingElse).replace(/\n/g, '<br>'),
+    beam: escapeHtml(beam),
+    estimateTotal: escapeHtml(estimateTotal),
+    estimateLineItems: escapeHtml(estimateLineItems),
+  };
 
   try {
     const body = `
       <div style="padding:16px;background:linear-gradient(135deg,#1565c0,#0097a7);border-radius:10px;margin-bottom:24px;">
         <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#b2ebf2;">Detailing Estimate</p>
-        <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">${name}${boatName ? ` — ${boatName}` : ''}</p>
+        <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;">${html.name}${boatName ? ` — ${html.boatName}` : ''}</p>
       </div>
 
       ${sectionHeading('Contact')}
       <table style="width:100%;border-collapse:collapse;">
-        ${detailRow('Name', name, true)}
-        ${detailRow('Email', `<a href="mailto:${email}" style="color:#1565c0;text-decoration:none;">${email}</a>`)}
-        ${phone ? detailRow('Phone', phone, true) : ''}
+        ${detailRow('Name', html.name, true)}
+        ${detailRow('Email', `<a href="mailto:${html.email}" style="color:#1565c0;text-decoration:none;">${html.email}</a>`)}
+        ${phone ? detailRow('Phone', html.phone, true) : ''}
       </table>
 
       ${sectionHeading('Vessel')}
       <table style="width:100%;border-collapse:collapse;">
-        ${boatName ? detailRow('Boat Name', boatName, true) : ''}
-        ${boatLength ? detailRow('Length', `${boatLength} ft`) : ''}
-        ${beam ? detailRow('Beam', `${beam} ft`, true) : ''}
+        ${boatName ? detailRow('Boat Name', html.boatName, true) : ''}
+        ${boatLength ? detailRow('Length', `${html.boatLength} ft`) : ''}
+        ${beam ? detailRow('Beam', `${html.beam} ft`, true) : ''}
         ${boatType ? detailRow('Type', boatType === 'sail' ? 'Sailboat' : 'Powerboat') : ''}
-        ${marina ? detailRow('Marina', marina, true) : ''}
-        ${dockSlip ? detailRow('Dock / Slip', dockSlip) : ''}
+        ${marina ? detailRow('Marina', html.marina, true) : ''}
+        ${dockSlip ? detailRow('Dock / Slip', html.dockSlip) : ''}
       </table>
 
       ${sectionHeading('Services Requested')}
-      <p style="font-size:14px;color:#334155;margin:0 0 12px;">${servicesList}</p>
+      <p style="font-size:14px;color:#334155;margin:0 0 12px;">${html.servicesList}</p>
 
       ${estimateTotal ? `
       <div style="padding:14px 16px;background:linear-gradient(135deg,#e0f2fe,#e0f7fa);border-radius:8px;margin:16px 0;">
-        <p style="margin:0;font-size:16px;font-weight:600;color:#0e7490;">Calculator Estimate: $${estimateTotal}</p>
-        ${estimateLineItems ? `<p style="margin:6px 0 0;font-size:13px;color:#155e75;">${estimateLineItems}</p>` : ''}
+        <p style="margin:0;font-size:16px;font-weight:600;color:#0e7490;">Calculator Estimate: $${html.estimateTotal}</p>
+        ${estimateLineItems ? `<p style="margin:6px 0 0;font-size:13px;color:#155e75;">${html.estimateLineItems}</p>` : ''}
       </div>` : ''}
 
       ${anythingElse ? `
       ${sectionHeading('Additional Services Requested')}
-      <p style="font-size:14px;color:#334155;margin:0;">${anythingElse.replace(/\n/g, '<br>')}</p>` : ''}
+      <p style="font-size:14px;color:#334155;margin:0;">${html.anythingElse}</p>` : ''}
 
       ${notes ? `
       ${sectionHeading('Notes')}
       <div style="padding:14px 16px;background-color:#f8fafc;border-left:3px solid #0097a7;border-radius:4px;">
-        <p style="margin:0;font-size:14px;white-space:pre-wrap;color:#334155;">${notes.replace(/\n/g, '<br>')}</p>
+        <p style="margin:0;font-size:14px;white-space:pre-wrap;color:#334155;">${html.notes}</p>
       </div>` : ''}
     `;
 
