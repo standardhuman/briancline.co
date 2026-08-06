@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { emailLayout, detailRow, sectionHeading } from './_email-layout.js';
+import { requireResendSuccess } from './_resend-result.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -91,18 +92,19 @@ export default async function handler(req, res) {
       notes ? `\nNotes:\n${notes}` : null,
     ].filter(Boolean).join('\n');
 
-    await resend.emails.send({
+    requireResendSuccess(await resend.emails.send({
       from: 'Brian Cline <deliveries@briancline.co>',
       to: 'standardhuman@gmail.com',
       replyTo: email,
       subject: `Delivery Inquiry — ${name} — ${vesselDesc}`,
       text: textContent,
       html: emailLayout('Vessel Delivery Inquiry', body),
-    });
+    }));
 
     return res.status(200).json({ success: true });
   } catch (error) {
-    console.error('Resend error:', error);
+    const providerErrorName = /^Resend send failed: ([A-Za-z0-9_-]+)$/.exec(error?.message ?? '')?.[1] ?? 'unknown';
+    console.error({ requestId: req.headers?.['x-request-id'] ?? 'unknown', endpoint: '/api/delivery-inquiry', providerErrorName });
     return res.status(500).json({ error: 'Failed to send message' });
   }
 }
