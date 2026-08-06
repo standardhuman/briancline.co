@@ -122,9 +122,7 @@ export async function notifyOperatorForSuccessfulOrder(
   if (outcome === 'sent') {
     return { status: 'sent' };
   }
-  const isDefinitiveNoSend =
-    outcome === 'mock' || outcome === 'rate_limited' || outcome === 'not_sent';
-  if (!isDefinitiveNoSend) {
+  if (!isDefinitiveNoSend(outcome)) {
     safeWarn(deps, 'Operator SMS response is ambiguous', { orderId: input.orderId });
     return { status: 'uncertain', reason: 'ambiguous_response' };
   }
@@ -145,6 +143,12 @@ export async function notifyOperatorForSuccessfulOrder(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
+}
+
+function isDefinitiveNoSend(
+  outcome: SendSmsOutcome,
+): outcome is Extract<SendSmsOutcome, 'mock' | 'rate_limited' | 'not_sent'> {
+  return outcome === 'mock' || outcome === 'rate_limited' || outcome === 'not_sent';
 }
 
 function errorClass(error: unknown): string {
