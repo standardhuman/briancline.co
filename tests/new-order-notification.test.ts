@@ -164,6 +164,18 @@ it('releases explicit non-delivery outcomes with the configured provider owner i
   }
 });
 
+it('retains the claim for an unexpected runtime sender outcome', async () => {
+  const { deps, state } = fakeDeps({
+    send: async () => 'unexpected' as unknown as SendSmsOutcome,
+  });
+  await expect(notifyOperatorForSuccessfulOrder(liveOrder, deps)).resolves.toEqual({
+    status: 'uncertain',
+    reason: 'ambiguous_response',
+  });
+  expect(state.releases).toEqual([]);
+  expect(state.warnings).toHaveLength(1);
+});
+
 it('retains the claim and reports uncertainty when release fails', async () => {
   const { deps, state } = fakeDeps({
     send: async () => 'not_sent',

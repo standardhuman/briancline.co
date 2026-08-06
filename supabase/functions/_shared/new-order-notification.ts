@@ -122,7 +122,9 @@ export async function notifyOperatorForSuccessfulOrder(
   if (outcome === 'sent') {
     return { status: 'sent' };
   }
-  if (outcome === 'ambiguous') {
+  const isDefinitiveNoSend =
+    outcome === 'mock' || outcome === 'rate_limited' || outcome === 'not_sent';
+  if (!isDefinitiveNoSend) {
     safeWarn(deps, 'Operator SMS response is ambiguous', { orderId: input.orderId });
     return { status: 'uncertain', reason: 'ambiguous_response' };
   }
