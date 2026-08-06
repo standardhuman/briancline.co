@@ -51,6 +51,25 @@ describe('successful-order SMS webhook contract', () => {
     expect(smsPath).not.toContain('orderForEmail');
   });
 
+  it('defers an email send failure until after the independent SMS branch', () => {
+    const succeededHandler = sourceBetween(
+      webhookSource,
+      'async function handleSetupIntentSucceeded',
+      'async function sendOrderEmails',
+    );
+    const emailCatchIndex = succeededHandler.indexOf('} catch (emailErr: any) {');
+    const smsBranchIndex = succeededHandler.indexOf('if (!operatorSmsConfigValid)');
+    const deferredThrowIndex = succeededHandler.indexOf('throw confirmationEmailError');
+
+    expect(succeededHandler).toContain('let confirmationEmailError: Error | null = null');
+    expect(emailCatchIndex).toBeGreaterThanOrEqual(0);
+    expect(smsBranchIndex).toBeGreaterThan(emailCatchIndex);
+    expect(deferredThrowIndex).toBeGreaterThan(smsBranchIndex);
+    expect(succeededHandler.slice(emailCatchIndex, smsBranchIndex)).not.toContain(
+      'throw new Error(`Confirmation email send failed:',
+    );
+  });
+
   it('requires trimmed configuration before lookup and scopes every mutation to the configured provider', () => {
     expect(webhookSource).toMatch(/ORDER_NOTIFY_PHONE_E164[\s\S]*\.trim\(\)/);
     expect(webhookSource).toMatch(/DEFAULT_PROVIDER_OWNER_USER_ID[\s\S]*\.trim\(\)/);

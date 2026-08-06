@@ -170,6 +170,7 @@ async function handleSetupIntentSucceeded(
     orderForEmail = data
   }
 
+  let confirmationEmailError: Error | null = null
   if (orderForEmail) {
     try {
       await sendOrderEmails(orderForEmail, card?.brand || null, card?.last4 || null)
@@ -177,15 +178,15 @@ async function handleSetupIntentSucceeded(
       // The confirmation_email_sent_at stamp above is an idempotency claim taken
       // BEFORE the send. If the send fails we must release it, otherwise the email
       // is lost forever and never retried (the bug that silently dropped the
-      // 2026-06-03 order's emails). Release the claim and rethrow so the top-level
-      // handler returns 500 and Stripe redelivers. Every write above this point is
-      // idempotent (payment_methods upsert, fixed-value updates), so a full retry
-      // is safe.
+      // 2026-06-03 order's emails). Release the claim and defer the rethrow until
+      // after the independent SMS branch, then let the top-level handler return
+      // 500 so Stripe redelivers. Every write above this point is idempotent
+      // (payment_methods upsert, fixed-value updates), so a full retry is safe.
       console.error('Email send failed; releasing claim for retry:', emailErr?.message, emailErr)
       await supabase.from('service_orders')
         .update({ confirmation_email_sent_at: null })
         .eq('id', authRow.service_order_id)
-      throw new Error(`Confirmation email send failed: ${emailErr?.message || emailErr}`)
+      confirmationEmailError = new Error(`Confirmation email send failed: ${emailErr?.message || emailErr}`)
     }
   } else if (authRow.service_order_id) {
     console.log(`Confirmation email already sent for order ${authRow.service_order_id} (idempotent skip on retry of ${setupIntent.id})`)
@@ -246,6 +247,10 @@ async function handleSetupIntentSucceeded(
         })
       }
     }
+  }
+
+  if (confirmationEmailError) {
+    throw confirmationEmailError
   }
 
   if (authRow.is_recurring) {
