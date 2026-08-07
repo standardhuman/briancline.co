@@ -10,6 +10,7 @@ import { Label } from "../components/ui/label";
 import { cn, formatCurrency } from "../lib/utils";
 import { SERVICES, conditionPriceRange, estimateScale, PAINT_AGE_OPTIONS, LAST_CLEANED_OPTIONS } from "../lib/diving-calculator";
 import { resolveScaleMarkerPrice } from "../lib/order-marker";
+import { normalizeService } from "../../analytics.js";
 import PageMeta from "../components/PageMeta";
 import ConditionsPricing from "../components/ConditionsPricing";
 import EstimateScale from "../components/EstimateScale";
@@ -231,7 +232,7 @@ function ProfileCard({ form, service, estimateAmount, isItemRecovery, showFreque
 }
 
 // ── Stripe-wrapped inner form ──
-function OrderForm({ searchParams, navigate }) {
+function OrderForm({ searchParams, navigate, analytics }) {
   const stripe = useStripe();
   const elements = useElements();
 
@@ -287,6 +288,7 @@ function OrderForm({ searchParams, navigate }) {
   // defined key, so `service` was undefined and `service.name` blank-screened the
   // whole order form on the bare URL / any unknown service param.
   const service = SERVICES[serviceKey] || SERVICES.cleaning;
+  const analyticsService = normalizeService(serviceKey);
 
   // Combine hull + type into a single boat type value
   const initialBoatType = `${initialHull}_${initialType}`;
@@ -495,6 +497,11 @@ function OrderForm({ searchParams, navigate }) {
     e.preventDefault();
     if (!canSubmit || !stripe || !elements) return;
 
+    let analyticsStep = "payment-intent";
+    analytics?.capture("checkout_started", {
+      surface: "services", service: analyticsService, step: analyticsStep, result: "started",
+    });
+
     setIsSubmitting(true);
     setError(null);
     setPromoError(null);
@@ -608,6 +615,10 @@ function OrderForm({ searchParams, navigate }) {
       };
 
       let result;
+      analyticsStep = "stripe-confirmation";
+      analytics?.capture("checkout_redirected", {
+        surface: "services", service: analyticsService, step: analyticsStep, result: "started",
+      });
       if (intentType === "setup") {
         result = await stripe.confirmCardSetup(clientSecret, {
           payment_method: { card: cardNumberElement, billing_details: billingDetails },
@@ -625,6 +636,9 @@ function OrderForm({ searchParams, navigate }) {
       console.error("Order submission error:", err);
       setError(err.message || "Something went wrong. Please try again.");
       setIsSubmitting(false);
+      analytics?.capture("checkout_failed", {
+        surface: "services", service: analyticsService, step: analyticsStep, result: "failed",
+      });
     }
   };
 
@@ -1241,7 +1255,7 @@ function OrderForm({ searchParams, navigate }) {
 }
 
 // ── Main Component (wraps in Elements provider) ──
-export default function DivingOrder() {
+export default function DivingOrder({ analytics }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [stripeReady, setStripeReady] = useState(null);
@@ -1260,7 +1274,7 @@ export default function DivingOrder() {
 
   return (
     <Elements stripe={stripeReady}>
-      <OrderForm searchParams={searchParams} navigate={navigate} />
+      <OrderForm searchParams={searchParams} navigate={navigate} analytics={analytics} />
     </Elements>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import PageHero from "../components/PageHero";
 import PageCTA from "../components/PageCTA";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
@@ -422,7 +422,7 @@ function DetailingEstimator({ onStateChange }) {
 
 const ESTIMATE_API_URL = "/api/detailing-estimate";
 
-function EstimateForm({ calculatorState }) {
+function EstimateForm({ calculatorState, analytics }) {
   const {
     boatType: calcBoatType,
     length: calcLength,
@@ -458,6 +458,15 @@ function EstimateForm({ calculatorState }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const contactStarted = useRef(false);
+
+  const markContactStarted = () => {
+    if (contactStarted.current) return;
+    contactStarted.current = true;
+    analytics?.capture("contact_started", {
+      surface: "services", service: "boat-detailing", step: "form",
+    });
+  };
 
   const serviceCheckboxes = [
     "Spring Pressure Wash",
@@ -511,9 +520,15 @@ function EstimateForm({ calculatorState }) {
       });
       if (!res.ok) throw new Error("Failed to send");
       setSubmitted(true);
+      analytics?.capture("contact_submitted", {
+        surface: "services", service: "boat-detailing", step: "submit", result: "success",
+      });
     } catch {
       setError("Failed to send. Email detailing@briancline.co directly.");
       setSubmitting(false);
+      analytics?.capture("contact_submitted", {
+        surface: "services", service: "boat-detailing", step: "submit", result: "failed",
+      });
     }
   }
 
@@ -534,7 +549,7 @@ function EstimateForm({ calculatorState }) {
         <CardDescription>Tell me about your boat. I'll get back to you within 24 hours{springWashOnly ? " to schedule your spring pressure wash." : " to schedule a walkthrough."}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} onChangeCapture={markContactStarted} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div><Label>Name *</Label><Input required value={form.name} onChange={updateField("name")} /></div>
             <div><Label>Email *</Label><Input type="email" required value={form.email} onChange={updateField("email")} /></div>
@@ -588,7 +603,7 @@ function EstimateForm({ calculatorState }) {
    Page
    ═══════════════════════════════════════════ */
 
-export default function Detailing() {
+export default function Detailing({ analytics }) {
   // Lift calculator state so we can pass it to the estimate form
   const [calculatorState, setCalculatorState] = useState(null);
 
@@ -645,7 +660,7 @@ export default function Detailing() {
       {/* Estimate Request Form */}
       <section className="py-16 md:py-24" id="estimate">
         <div className="max-w-2xl mx-auto px-6">
-          <EstimateForm calculatorState={calculatorState} />
+          <EstimateForm calculatorState={calculatorState} analytics={analytics} />
         </div>
       </section>
 
