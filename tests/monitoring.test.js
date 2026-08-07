@@ -89,6 +89,19 @@ describe('browser monitoring privacy contract', () => {
     expect(fallbackSdk.calls.inits[0].environment).toBe('development');
   });
 
+  it('initializes only once when two browser factories share a runtime SDK', () => {
+    const sdk = createSdk();
+    const env = { VITE_SENTRY_DSN: 'dsn', MODE: 'production' };
+    const first = createBrowserMonitoring({ sdk, env });
+    const second = createBrowserMonitoring({ sdk, env });
+
+    first.captureException(new Error('first browser failure'));
+    second.captureException(new Error('second browser failure'));
+
+    expect(sdk.calls.inits).toHaveLength(1);
+    expect(sdk.calls.captures).toHaveLength(2);
+  });
+
   it('removes personal fields and redacts secret-bearing text without changing exception type or frames', () => {
     const sdk = createSdk();
     const monitoring = createBrowserMonitoring({ sdk, env: { VITE_SENTRY_DSN: 'dsn' } });
@@ -191,5 +204,18 @@ describe('server monitoring privacy contract', () => {
     const fallbackSdk = createSdk();
     await createServerMonitoring({ sdk: fallbackSdk, env: { SENTRY_DSN: 'dsn' } }).captureException(new Error('local failure'));
     expect(fallbackSdk.calls.inits[0].environment).toBe('development');
+  });
+
+  it('initializes only once when two server factories share a runtime SDK', async () => {
+    const sdk = createSdk();
+    const env = { SENTRY_DSN: 'dsn', NODE_ENV: 'production' };
+    const first = createServerMonitoring({ sdk, env });
+    const second = createServerMonitoring({ sdk, env });
+
+    await first.captureException(new Error('first server failure'));
+    await second.captureException(new Error('second server failure'));
+
+    expect(sdk.calls.inits).toHaveLength(1);
+    expect(sdk.calls.captures).toHaveLength(2);
   });
 });

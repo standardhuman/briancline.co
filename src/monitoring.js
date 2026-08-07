@@ -7,6 +7,8 @@ const allowedTagValues = {
   stage: new Set(['browser-runtime', 'resend-send']),
 };
 
+const initializedRuntimeSdks = new WeakSet();
+
 function trimmed(value) {
   return typeof value === 'string' ? value.trim() : '';
 }
@@ -82,6 +84,11 @@ export function createBrowserMonitoring({ sdk, env = {} }) {
     if (!dsn) return false;
     if (initialized) return true;
 
+    if (initializedRuntimeSdks.has(sdk)) {
+      initialized = true;
+      return true;
+    }
+
     const environment = trimmed(env.VITE_VERCEL_ENV) || trimmed(env.MODE) || 'development';
     const release = trimmed(env.VITE_VERCEL_GIT_COMMIT_SHA);
     const options = {
@@ -96,6 +103,7 @@ export function createBrowserMonitoring({ sdk, env = {} }) {
 
     if (release) options.release = release;
     sdk.init(options);
+    initializedRuntimeSdks.add(sdk);
     initialized = true;
     return true;
   }
