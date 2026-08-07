@@ -39,14 +39,18 @@ export function createServerMonitoring({ sdk, env = {} }) {
 
   return {
     async captureException(exception, tags = {}) {
-      if (!initialize()) return false;
+      try {
+        if (!initialize()) return false;
 
-      sdk.withScope((scope) => {
-        scope.setTags(sanitizeSentryTags({ ...tags, runtime: 'server' }));
-        sdk.captureException(exception);
-      });
-      await sdk.flush(2000);
-      return true;
+        sdk.withScope((scope) => {
+          scope.setTags(sanitizeSentryTags({ ...tags, runtime: 'server' }));
+          sdk.captureException(exception);
+        });
+        await sdk.flush(2000);
+        return true;
+      } catch {
+        return false;
+      }
     },
   };
 }

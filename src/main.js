@@ -1,6 +1,14 @@
 // Brian Cline Landing Page
 
 import { inject } from '@vercel/analytics';
+import { captureException, init, setTags, withScope } from '@sentry/browser';
+import { createBrowserMonitoring } from './monitoring.js';
+
+const monitoring = createBrowserMonitoring({
+  sdk: { captureException, init, setTags, withScope },
+  env: import.meta.env,
+});
+monitoring.initialize({ surface: 'landing', stage: 'browser-runtime' });
 
 // Initialize Vercel Analytics
 inject();

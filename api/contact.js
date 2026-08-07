@@ -1,9 +1,12 @@
 import { Resend } from 'resend';
+import * as Sentry from '@sentry/node';
 import { escapeHtml } from './_escape-html.js';
 import { emailLayout, detailRow, sectionHeading } from './_email-layout.js';
+import { createServerMonitoring } from './_monitoring.js';
 import { requireResendSuccess } from './_resend-result.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const monitoring = createServerMonitoring({ sdk: Sentry, env: process.env });
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -51,6 +54,11 @@ export default async function handler(req, res) {
   } catch (error) {
     const providerErrorName = /^Resend send failed: ([A-Za-z0-9_-]+)$/.exec(error?.message ?? '')?.[1] ?? 'unknown';
     console.error({ requestId: req.headers?.['x-request-id'] ?? 'unknown', endpoint: '/api/contact', providerErrorName });
+    try {
+      await monitoring.captureException(error, { surface: 'email-api', endpoint: 'contact', stage: 'resend-send' });
+    } catch {
+      // Monitoring must never replace the established generic API response.
+    }
     return res.status(500).json({ error: 'Failed to send message' });
   }
 }

@@ -3,12 +3,15 @@ import { createBrowserMonitoring } from '../src/monitoring.js';
 import { createServerMonitoring } from '../api/_monitoring.js';
 
 function createSdk() {
-  const calls = { captures: [], flushes: [], inits: [], scopes: [] };
+  const calls = { captures: [], flushes: [], globalTags: [], inits: [], scopes: [] };
 
   return {
     calls,
     init(options) {
       calls.inits.push(options);
+    },
+    setTags(tags) {
+      calls.globalTags.push(tags);
     },
     withScope(callback) {
       const tags = {};
@@ -34,11 +37,12 @@ describe('browser monitoring privacy contract', () => {
     const sdk = createSdk();
     const monitoring = createBrowserMonitoring({ sdk, env: { MODE: 'production' } });
 
+    expect(monitoring.initialize({ surface: 'landing', stage: 'browser-runtime' })).toBe(false);
     expect(monitoring.captureException(new Error('browser failure'), { surface: 'landing' })).toBe(false);
-    expect(sdk.calls).toStrictEqual({ captures: [], flushes: [], inits: [], scopes: [] });
+    expect(sdk.calls).toStrictEqual({ captures: [], flushes: [], globalTags: [], inits: [], scopes: [] });
   });
 
-  it('maps trimmed browser deployment values and initializes once while capturing safe runtime tags', () => {
+  it('maps trimmed browser deployment values and initializes once with safe automatic-event tags', () => {
     const sdk = createSdk();
     const monitoring = createBrowserMonitoring({
       sdk,
@@ -52,6 +56,11 @@ describe('browser monitoring privacy contract', () => {
     const first = new TypeError('first failure');
     const second = new Error('second failure');
 
+    expect(monitoring.initialize({
+      surface: 'landing',
+      stage: 'browser-runtime',
+      email: 'ada@example.com',
+    })).toBe(true);
     expect(monitoring.captureException(first, { surface: 'landing', email: 'ada@example.com' })).toBe(true);
     expect(monitoring.captureException(second, { surface: 'services', token: 'secret' })).toBe(true);
 
@@ -66,10 +75,27 @@ describe('browser monitoring privacy contract', () => {
       replaysOnErrorSampleRate: 0,
     });
     expect(typeof sdk.calls.inits[0].beforeSend).toBe('function');
+    expect(sdk.calls.globalTags).toStrictEqual([{
+      surface: 'landing',
+      stage: 'browser-runtime',
+      runtime: 'browser',
+    }]);
     expect(sdk.calls.captures).toStrictEqual([
       { exception: first, tags: { surface: 'landing', runtime: 'browser' } },
       { exception: second, tags: { surface: 'services', runtime: 'browser' } },
     ]);
+  });
+
+  it('fails closed when browser initialization throws during app startup', () => {
+    const sdk = createSdk();
+    sdk.init = () => {
+      throw new Error('Sentry init failed');
+    };
+    const monitoring = createBrowserMonitoring({ sdk, env: { VITE_SENTRY_DSN: 'dsn' } });
+
+    expect(() => monitoring.initialize({ surface: 'landing', stage: 'browser-runtime' })).not.toThrow();
+    expect(monitoring.initialize({ surface: 'landing', stage: 'browser-runtime' })).toBe(false);
+    expect(monitoring.captureException(new Error('app still runs'))).toBe(false);
   });
 
   it('uses MODE then development and omits a blank browser release', () => {
@@ -148,7 +174,7 @@ describe('server monitoring privacy contract', () => {
     const monitoring = createServerMonitoring({ sdk, env: { NODE_ENV: 'production' } });
 
     await expect(monitoring.captureException(new Error('server failure'), { surface: 'email-api' })).resolves.toBe(false);
-    expect(sdk.calls).toStrictEqual({ captures: [], flushes: [], inits: [], scopes: [] });
+    expect(sdk.calls).toStrictEqual({ captures: [], flushes: [], globalTags: [], inits: [], scopes: [] });
   });
 
   it('maps trimmed server deployment values, captures only safe tags, and flushes for at most two seconds', async () => {
@@ -217,5 +243,22 @@ describe('server monitoring privacy contract', () => {
 
     expect(sdk.calls.inits).toHaveLength(1);
     expect(sdk.calls.captures).toHaveLength(2);
+  });
+
+  it('fails closed when server capture or flush rejects', async () => {
+    const captureSdk = createSdk();
+    captureSdk.captureException = () => {
+      throw new Error('capture failed');
+    };
+    const flushSdk = createSdk();
+    flushSdk.flush = async () => {
+      throw new Error('flush failed');
+    };
+
+    await expect(createServerMonitoring({ sdk: captureSdk, env: { SENTRY_DSN: 'dsn' } })
+      .captureException(new Error('provider failure'))).resolves.toBe(false);
+    await expect(createServerMonitoring({ sdk: flushSdk, env: { SENTRY_DSN: 'dsn' } })
+      .captureException(new Error('provider failure'))).resolves.toBe(false);
+    expect(flushSdk.calls.flushes).toStrictEqual([]);
   });
 });

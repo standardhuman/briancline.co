@@ -80,43 +80,58 @@ export function createBrowserMonitoring({ sdk, env = {} }) {
   const dsn = trimmed(env.VITE_SENTRY_DSN);
   let initialized = false;
 
-  function initialize() {
+  function ensureInitialized() {
     if (!dsn) return false;
     if (initialized) return true;
 
-    if (initializedRuntimeSdks.has(sdk)) {
+    try {
+      if (!initializedRuntimeSdks.has(sdk)) {
+        const environment = trimmed(env.VITE_VERCEL_ENV) || trimmed(env.MODE) || 'development';
+        const release = trimmed(env.VITE_VERCEL_GIT_COMMIT_SHA);
+        const options = {
+          dsn,
+          environment,
+          sendDefaultPii: false,
+          tracesSampleRate: 0,
+          replaysSessionSampleRate: 0,
+          replaysOnErrorSampleRate: 0,
+          beforeSend: scrubSentryEvent,
+        };
+
+        if (release) options.release = release;
+        sdk.init(options);
+        initializedRuntimeSdks.add(sdk);
+      }
       initialized = true;
       return true;
+    } catch {
+      return false;
     }
-
-    const environment = trimmed(env.VITE_VERCEL_ENV) || trimmed(env.MODE) || 'development';
-    const release = trimmed(env.VITE_VERCEL_GIT_COMMIT_SHA);
-    const options = {
-      dsn,
-      environment,
-      sendDefaultPii: false,
-      tracesSampleRate: 0,
-      replaysSessionSampleRate: 0,
-      replaysOnErrorSampleRate: 0,
-      beforeSend: scrubSentryEvent,
-    };
-
-    if (release) options.release = release;
-    sdk.init(options);
-    initializedRuntimeSdks.add(sdk);
-    initialized = true;
-    return true;
   }
 
   return {
-    captureException(exception, tags = {}) {
-      if (!initialize()) return false;
+    initialize(defaultTags = {}) {
+      if (!ensureInitialized()) return false;
 
-      sdk.withScope((scope) => {
-        scope.setTags(sanitizeSentryTags({ ...tags, runtime: 'browser' }));
-        sdk.captureException(exception);
-      });
-      return true;
+      try {
+        sdk.setTags(sanitizeSentryTags({ ...defaultTags, runtime: 'browser' }));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    captureException(exception, tags = {}) {
+      if (!ensureInitialized()) return false;
+
+      try {
+        sdk.withScope((scope) => {
+          scope.setTags(sanitizeSentryTags({ ...tags, runtime: 'browser' }));
+          sdk.captureException(exception);
+        });
+        return true;
+      } catch {
+        return false;
+      }
     },
   };
 }
