@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/node';
 import { escapeHtml } from './_escape-html.js';
 import { emailLayout, detailRow, sectionHeading } from './_email-layout.js';
 import { createServerMonitoring } from './_monitoring.js';
+import { sanitizeRequestId } from './_request-id.js';
 import { requireResendSuccess } from './_resend-result.js';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -126,7 +127,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true });
   } catch (error) {
     const providerErrorName = /^Resend send failed: ([A-Za-z0-9_-]+)$/.exec(error?.message ?? '')?.[1] ?? 'unknown';
-    console.error({ requestId: req.headers?.['x-request-id'] ?? 'unknown', endpoint: '/api/delivery-inquiry', providerErrorName });
+    console.error({ requestId: sanitizeRequestId(req.headers?.['x-request-id']), endpoint: '/api/delivery-inquiry', providerErrorName });
     try {
       await monitoring.captureException(error, { surface: 'email-api', endpoint: 'delivery-inquiry', stage: 'resend-send' });
     } catch {

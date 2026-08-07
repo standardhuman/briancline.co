@@ -109,5 +109,22 @@ describe('public email API monitoring integration', () => {
       expect(response.status).toHaveBeenCalledWith(500);
       expect(response.json).toHaveBeenCalledWith(errorBody);
     });
+
+    it('replaces a malicious request ID before writing the allowlisted failure log', async () => {
+      captureException.mockResolvedValueOnce(true);
+      const response = createResponse([]);
+
+      await handler(
+        { method: 'POST', body, headers: { 'x-request-id': 'ada@example.com\nforged-log-entry' } },
+        response,
+      );
+
+      expect(console.error).toHaveBeenCalledOnce();
+      expect(console.error).toHaveBeenCalledWith({
+        requestId: 'unknown',
+        endpoint: `/api/${name}`,
+        providerErrorName: 'validation_error',
+      });
+    });
   });
 });

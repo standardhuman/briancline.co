@@ -166,6 +166,161 @@ describe('browser monitoring privacy contract', () => {
       },
     });
   });
+
+  it('removes secrets from navigation and console breadcrumbs without mutating the captured event', () => {
+    const sdk = createSdk();
+    const monitoring = createBrowserMonitoring({ sdk, env: { VITE_SENTRY_DSN: 'dsn' } });
+    monitoring.captureException(new Error('initialize'));
+    const beforeSend = sdk.calls.inits[0].beforeSend;
+    const event = {
+      breadcrumbs: [
+        {
+          category: 'navigation',
+          message: 'Opening order for ada@example.com with Bearer order-token',
+          data: {
+            from: 'https://briancline.co/services?customerEmail=ada%40example.com&leadBoatId=lead-secret#details',
+            to: '/order?customerPhone=415-555-0123&leadBoatId=lead-secret',
+            url: 'https://briancline.co/order/confirmation?token=checkout-secret',
+            status_code: 200,
+          },
+        },
+        {
+          category: 'console',
+          level: 'error',
+          message: 'Order failed for ada@example.com with Bearer checkout-secret',
+          data: {
+            arguments: [
+              'Call 415-555-0123',
+              { customerEmail: 'ada@example.com', leadBoatId: 'lead-secret' },
+            ],
+            logger: 'console',
+          },
+        },
+        {
+          category: 'ui.click',
+          message: 'Contact 415-555-0123 about ada@example.com',
+          data: { action: 'submit' },
+        },
+      ],
+    };
+    const original = structuredClone(event);
+
+    expect(beforeSend(event)).toStrictEqual({
+      breadcrumbs: [
+        {
+          category: 'navigation',
+          message: 'Opening order for [redacted-email] with [redacted-bearer]',
+          data: {
+            from: '/services',
+            to: '/order',
+            url: '/order/confirmation',
+            status_code: 200,
+          },
+        },
+        {
+          category: 'console',
+          level: 'error',
+          data: { logger: 'console' },
+        },
+        {
+          category: 'ui.click',
+          message: 'Contact [redacted-phone] about [redacted-email]',
+          data: { action: 'submit' },
+        },
+      ],
+    });
+    expect(event).toStrictEqual(original);
+  });
+
+  it('drops navigation URL fields with sensitive or malformed decoded paths while retaining safe paths', () => {
+    const sdk = createSdk();
+    const monitoring = createBrowserMonitoring({ sdk, env: { VITE_SENTRY_DSN: 'dsn' } });
+    monitoring.captureException(new Error('initialize'));
+    const beforeSend = sdk.calls.inits[0].beforeSend;
+    const event = {
+      breadcrumbs: [
+        {
+          category: 'navigation',
+          data: {
+            from: '/orders/confirmation?customerEmail=ada%40example.com',
+            to: '/ada@example.com/order',
+            url: '/orders/Bearer%20secret-token',
+          },
+        },
+        {
+          category: 'navigation',
+          data: {
+            from: '/orders/415-555-0123',
+            to: '/orders/ada%2540example.com',
+            url: '/orders/Bearer%2520double-secret',
+          },
+        },
+        {
+          category: 'navigation',
+          data: {
+            from: '/orders/%34%31%35%2D%35%35%35%2D%30%31%32%33',
+            to: '/orders/%E0%A4%A',
+            url: 'https://briancline.co/orders/safe?token=query-secret',
+          },
+        },
+      ],
+    };
+    const original = structuredClone(event);
+
+    expect(beforeSend(event)).toStrictEqual({
+      breadcrumbs: [
+        { category: 'navigation', data: { from: '/orders/confirmation' } },
+        { category: 'navigation', data: {} },
+        { category: 'navigation', data: { url: '/orders/safe' } },
+      ],
+    });
+    expect(event).toStrictEqual(original);
+  });
+
+  it('drops phone-like pathname clusters across URL separators without dropping safe numeric routes', () => {
+    const sdk = createSdk();
+    const monitoring = createBrowserMonitoring({ sdk, env: { VITE_SENTRY_DSN: 'dsn' } });
+    monitoring.captureException(new Error('initialize'));
+    const beforeSend = sdk.calls.inits[0].beforeSend;
+    const event = {
+      breadcrumbs: [
+        {
+          category: 'navigation',
+          data: {
+            from: '/orders/415_555_0123',
+            to: '/orders/415/555/0123',
+            url: '/orders/12345678',
+          },
+        },
+        {
+          category: 'navigation',
+          data: {
+            from: '/orders/415%5F555%5F0123',
+            to: '/orders/415%2F555%2F0123',
+            url: '/archive/2026/08/06',
+          },
+        },
+        {
+          category: 'navigation',
+          data: {
+            from: '/orders/415%255F555%255F0123',
+            to: '/orders/415%252F555%252F0123',
+            url: '/orders/20260806/status',
+          },
+        },
+      ],
+    };
+    const original = structuredClone(event);
+
+    expect(beforeSend(event)).toStrictEqual({
+      breadcrumbs: [
+        { category: 'navigation', data: { url: '/orders/12345678' } },
+        { category: 'navigation', data: { url: '/archive/2026/08/06' } },
+        { category: 'navigation', data: { url: '/orders/20260806/status' } },
+      ],
+    });
+    expect(event).toStrictEqual(original);
+  });
 });
 
 describe('server monitoring privacy contract', () => {
