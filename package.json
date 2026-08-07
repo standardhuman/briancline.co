@@ -21,10 +21,10 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.4.23",
-    "postcss": "^8.5.6",
+    "postcss": "^8.5.23",
     "tailwindcss": "^4.1.18",
-    "vite": "^6.4.1",
-    "vitest": "^4.0.18"
+    "vite": "^6.4.3",
+    "vitest": "^4.1.0"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -46,8 +46,8 @@
     "posthog-js": "1.413.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.1",
-    "resend": "^6.6.0",
+    "react-router-dom": "^7.18.2",
+    "resend": "^6.18.1",
     "tailwind-merge": "^3.5.0"
   }
 }
