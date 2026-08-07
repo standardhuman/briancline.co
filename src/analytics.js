@@ -73,28 +73,10 @@ const tokenLike = /(?:^|[._~-])(?:bearer|token|jwt)[._~-]?[A-Za-z0-9_-]{6,}/i;
 const commonSecretPrefix = /(?:^|[._~-])(?:gh[pousr]|github_pat|xox[baprs]|akia|asia|secret|api[_-]?key)[._~-]?[A-Za-z0-9_-]{8,}/i;
 const customerIdentifier = /(?:customer|cus)[._~-]?[A-Za-z0-9_-]{8,}/i;
 const sensitiveValuePrefix = /^(?:bearer|cus|pi|pm|tok|sk|pk|order)[._~-]/i;
-const unsafeCampaignPropertyKeys = new Set([
-  'ph_keyword',
-  'gad_source',
-  'mc_cid',
-  'gclid',
-  'gclsrc',
-  'dclid',
-  'gbraid',
-  'wbraid',
-  'fbclid',
-  'msclkid',
-  'twclid',
-  'li_fat_id',
-  'igshid',
-  'ttclid',
-  'rdt_cid',
-  'epik',
-  'qclid',
-  'sccid',
-  'irclid',
-  '_kx',
-]);
+const sdkUuidV7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const sdkEventUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const sdkInsertId = /^[a-z0-9]{16}$/;
+const sdkVersion = /^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/;
 
 function trimmed(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -165,6 +147,32 @@ function sanitizeProperties(properties) {
     const candidate = safeLabel(value);
     if (candidate) sanitized[key] = candidate;
   }
+
+  return sanitized;
+}
+
+function sanitizeSdkProperties(properties, key) {
+  const sanitized = sanitizeProperties(properties);
+
+  if (properties.token === key) sanitized.token = key;
+  for (const property of ['distinct_id', '$device_id', '$session_id', '$window_id']) {
+    if (typeof properties[property] === 'string' && sdkUuidV7.test(properties[property])) {
+      sanitized[property] = properties[property];
+    }
+  }
+  if (properties.$lib === 'web') sanitized.$lib = 'web';
+  if (
+    typeof properties.$lib_version === 'string'
+    && properties.$lib_version.length <= 40
+    && sdkVersion.test(properties.$lib_version)
+  ) sanitized.$lib_version = properties.$lib_version;
+  if (typeof properties.$insert_id === 'string' && sdkInsertId.test(properties.$insert_id)) {
+    sanitized.$insert_id = properties.$insert_id;
+  }
+  if (typeof properties.$time === 'number' && Number.isFinite(properties.$time) && properties.$time >= 0) {
+    sanitized.$time = properties.$time;
+  }
+  if (properties.$process_person_profile === false) sanitized.$process_person_profile = false;
 
   return sanitized;
 }
@@ -259,6 +267,11 @@ export function createAnalytics({
         !captureResult
         || typeof captureResult !== 'object'
         || Array.isArray(captureResult)
+        || !allowedEvents.has(captureResult.event)
+        || typeof captureResult.uuid !== 'string'
+        || !sdkEventUuid.test(captureResult.uuid)
+        || !(captureResult.timestamp instanceof Date)
+        || !Number.isFinite(captureResult.timestamp.getTime())
         || !captureResult.properties
         || typeof captureResult.properties !== 'object'
         || Array.isArray(captureResult.properties)
@@ -271,26 +284,17 @@ export function createAnalytics({
         ? safeAbsoluteUrl(captureResult.properties.$session_entry_url)
         : '';
       const properties = {
-        ...captureResult.properties,
+        ...sanitizeSdkProperties(captureResult.properties, key),
         $current_url: currentUrl,
       };
-      for (const property of Object.keys(properties)) {
-        if (
-          property.startsWith('$session_entry_')
-          || property.startsWith('$initial_')
-          || unsafeCampaignPropertyKeys.has(property)
-        ) delete properties[property];
-      }
-      for (const property of attributionKeys) {
-        if (!Object.hasOwn(properties, property)) continue;
-        const sanitized = safeLabel(properties[property]);
-        if (sanitized) properties[property] = sanitized;
-        else delete properties[property];
-      }
       if (sessionEntryUrl) properties.$session_entry_url = sessionEntryUrl;
-      delete properties.$referrer;
 
-      return { ...captureResult, properties };
+      return {
+        uuid: captureResult.uuid,
+        event: captureResult.event,
+        properties,
+        timestamp: new Date(captureResult.timestamp.getTime()),
+      };
     } catch {
       return null;
     }

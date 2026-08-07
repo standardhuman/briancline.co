@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { PostHog } from 'posthog-js/dist/module.slim';
 import {
   createAnalytics,
   normalizeService,
@@ -15,6 +16,8 @@ const allowedEvents = [
   'checkout_redirected',
   'checkout_failed',
 ];
+const captureUuid = '019fdace-7e94-7e7e-a9df-703d923b321a';
+const captureTimestamp = new Date('2026-08-06T12:00:00.000Z');
 
 function createSdk() {
   const calls = { captures: [], inits: [] };
@@ -104,9 +107,9 @@ describe('PostHog initialization contract', () => {
       ['checkout_redirected', { service: 'hull-cleaning', step: 'stripe-confirmation', result: 'started' }],
     ]) {
       const enriched = {
-        uuid: `uuid-${event}`,
+        uuid: captureUuid,
         event,
-        timestamp: new Date('2026-08-06T12:00:00.000Z'),
+        timestamp: captureTimestamp,
         properties: {
           ...customProperties,
           $current_url: 'https://briancline.co/hull-cleaning/order?email=ada@example.com#payment',
@@ -137,13 +140,33 @@ describe('PostHog initialization contract', () => {
           utm_campaign: 'summer-sale',
           utm_content: 'secret-abcdefghijklmnopqrstuvwxyz',
           utm_term: 'sailing',
-          token: 'phc_internal_project_token',
-          distinct_id: 'distinct_internal',
+          token: 'key',
+          distinct_id: '019fdace-7e93-7182-bd9a-e046aa0958a3',
           $lib: 'web',
           $lib_version: '1.413.3',
-          $device_id: 'device_internal',
-          $session_id: 'session_internal',
-          $window_id: 'window_internal',
+          $insert_id: 'abcdefghijklmnop',
+          $time: 1786027200.5,
+          $process_person_profile: false,
+          $device_id: '019fdace-7e93-7182-bd9a-e046aa0958a3',
+          $session_id: '019fdace-7ea1-7585-af86-620e0304007e',
+          $window_id: '019fdace-7ea1-7585-af86-620f559a00ac',
+          $raw_user_agent: 'Mozilla/5.0 private fingerprint',
+          $screen_width: 1440,
+          $screen_height: 900,
+          $viewport_width: 1280,
+          $viewport_height: 720,
+          $timezone: 'America/Los_Angeles',
+          $timezone_offset: 420,
+          $browser: 'Chrome',
+          $browser_version: 140,
+          $os: 'Mac OS X',
+          $os_version: '15.6',
+          $device_type: 'Desktop',
+          $host: 'briancline.co',
+          $pathname: '/hull-cleaning/order',
+          $active_feature_flags: ['private-experiment'],
+          $feature_flag_payloads: { 'private-experiment': 'variant' },
+          $future_sdk_fingerprint: 'new enrichment must fail closed',
         },
       };
       const originalProperties = { ...enriched.properties };
@@ -160,17 +183,228 @@ describe('PostHog initialization contract', () => {
           utm_term: 'sailing',
           $current_url: 'https://briancline.co/hull-cleaning/order',
           $session_entry_url: 'https://briancline.co/hull-cleaning/order',
-          token: 'phc_internal_project_token',
-          distinct_id: 'distinct_internal',
+          token: 'key',
+          distinct_id: '019fdace-7e93-7182-bd9a-e046aa0958a3',
           $lib: 'web',
           $lib_version: '1.413.3',
-          $device_id: 'device_internal',
-          $session_id: 'session_internal',
-          $window_id: 'window_internal',
+          $insert_id: 'abcdefghijklmnop',
+          $time: 1786027200.5,
+          $process_person_profile: false,
+          $device_id: '019fdace-7e93-7182-bd9a-e046aa0958a3',
+          $session_id: '019fdace-7ea1-7585-af86-620e0304007e',
+          $window_id: '019fdace-7ea1-7585-af86-620f559a00ac',
         },
       });
       expect(enriched.properties).toStrictEqual(originalProperties);
     }
+  });
+
+  it('drops PII or token-shaped anonymous identities without rejecting an otherwise valid capture', () => {
+    const sdk = createSdk();
+    const analytics = createAnalytics({
+      sdk,
+      env: { VITE_POSTHOG_KEY: 'key' },
+      getLocation: () => ({ origin: 'https://briancline.co', pathname: '/marine' }),
+    });
+    analytics.initialize();
+    const beforeSend = sdk.calls.inits[0].options.before_send;
+
+    expect(beforeSend({
+      uuid: captureUuid,
+      event: 'service_viewed',
+      timestamp: captureTimestamp,
+      properties: {
+        service: 'marine',
+        token: 'key',
+        distinct_id: 'ada@example.com',
+        $device_id: 'sk_live_51N6wF6ABCDEF123456',
+        $session_id: '415-555-0123',
+        $window_id: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature',
+        $lib: 'web',
+        $lib_version: '1.413.3',
+        $insert_id: 'abcdefghijklmnop',
+        $time: 1786027200.5,
+        $process_person_profile: false,
+      },
+    })).toStrictEqual({
+      uuid: captureUuid,
+      event: 'service_viewed',
+      timestamp: captureTimestamp,
+      properties: {
+        service: 'marine',
+        token: 'key',
+        $lib: 'web',
+        $lib_version: '1.413.3',
+        $insert_id: 'abcdefghijklmnop',
+        $time: 1786027200.5,
+        $process_person_profile: false,
+        $current_url: 'https://briancline.co/marine',
+      },
+    });
+  });
+
+  it('retains only the configured PostHog project token', () => {
+    const sdk = createSdk();
+    const analytics = createAnalytics({
+      sdk,
+      env: { VITE_POSTHOG_KEY: 'configured-key' },
+      getLocation: () => ({ origin: 'https://briancline.co', pathname: '/marine' }),
+    });
+    analytics.initialize();
+    const beforeSend = sdk.calls.inits[0].options.before_send;
+
+    expect(beforeSend({
+      uuid: captureUuid,
+      event: 'service_viewed',
+      timestamp: captureTimestamp,
+      properties: { service: 'marine', token: 'configured-key' },
+    }).properties).toStrictEqual({
+      service: 'marine',
+      token: 'configured-key',
+      $current_url: 'https://briancline.co/marine',
+    });
+    expect(beforeSend({
+      uuid: captureUuid,
+      event: 'service_viewed',
+      timestamp: captureTimestamp,
+      properties: { service: 'marine', token: 'different-project-key' },
+    }).properties).toStrictEqual({
+      service: 'marine',
+      $current_url: 'https://briancline.co/marine',
+    });
+  });
+
+  it('keeps installed PostHog capture semantics while removing automatic fingerprint enrichment', async () => {
+    const sdk = new PostHog();
+    sdk._send_request = vi.fn();
+    const analytics = createAnalytics({
+      sdk,
+      env: { VITE_POSTHOG_KEY: 'key' },
+      getLocation: () => ({ origin: 'https://briancline.co', pathname: '/marine' }),
+    });
+    const captured = [];
+
+    try {
+      expect(analytics.initialize()).toBe(true);
+      const unsubscribe = sdk.on('eventCaptured', ({ event, properties }) => captured.push({ event, properties }));
+      expect(analytics.capture('service_viewed', { service: 'marine', surface: 'services' })).toBe(true);
+      unsubscribe();
+
+      expect(captured).toHaveLength(1);
+      expect(captured[0].event).toBe('service_viewed');
+      expect(Object.keys(captured[0].properties).sort()).toStrictEqual([
+        '$current_url',
+        '$device_id',
+        '$insert_id',
+        '$lib',
+        '$lib_version',
+        '$process_person_profile',
+        '$session_id',
+        '$time',
+        '$window_id',
+        'distinct_id',
+        'service',
+        'surface',
+        'token',
+      ].sort());
+      expect(captured[0].properties).toMatchObject({
+        service: 'marine',
+        surface: 'services',
+        token: 'key',
+        $current_url: 'https://briancline.co/marine',
+        $lib: 'web',
+        $lib_version: '1.413.3',
+        $process_person_profile: false,
+      });
+      for (const property of ['distinct_id', '$device_id', '$session_id', '$window_id']) {
+        expect(captured[0].properties[property]).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+        );
+      }
+    } finally {
+      await sdk.shutdown();
+    }
+  });
+
+  it('removes installed PostHog person-property options before emit and transport', async () => {
+    const sdk = new PostHog();
+    sdk._send_request = vi.fn();
+    const analytics = createAnalytics({
+      sdk,
+      env: { VITE_POSTHOG_KEY: 'key' },
+      getLocation: () => ({ origin: 'https://briancline.co', pathname: '/marine' }),
+    });
+    const captured = [];
+
+    try {
+      expect(analytics.initialize()).toBe(true);
+      const unsubscribe = sdk.on('eventCaptured', (captureResult) => captured.push(captureResult));
+      const result = sdk.capture('service_viewed', { service: 'marine' }, {
+        $set: { email: 'ada@example.com' },
+        $set_once: { phone: '415-555-0123' },
+        send_instantly: true,
+      });
+      unsubscribe();
+
+      expect(result).toEqual(expect.any(Object));
+      expect(Object.keys(result).sort()).toStrictEqual(['event', 'properties', 'timestamp', 'uuid']);
+      expect(result).not.toHaveProperty('$set');
+      expect(result).not.toHaveProperty('$set_once');
+      expect(captured).toStrictEqual([result]);
+
+      const outgoingEvents = sdk._send_request.mock.calls
+        .map(([request]) => request.data)
+        .filter((data) => data?.event === 'service_viewed');
+      expect(outgoingEvents).toStrictEqual([result]);
+    } finally {
+      await sdk.shutdown();
+    }
+  });
+
+  it('rebuilds the direct hook result from validated top-level fields only', () => {
+    const sdk = createSdk();
+    const analytics = createAnalytics({
+      sdk,
+      env: { VITE_POSTHOG_KEY: 'key' },
+      getLocation: () => ({ origin: 'https://briancline.co', pathname: '/marine' }),
+    });
+    analytics.initialize();
+    const beforeSend = sdk.calls.inits[0].options.before_send;
+    const captureResult = {
+      uuid: captureUuid,
+      event: 'service_viewed',
+      timestamp: captureTimestamp,
+      properties: { service: 'marine', token: 'key' },
+      $set: { email: 'ada@example.com' },
+      $set_once: { phone: '415-555-0123' },
+      $unset: ['private-profile-field'],
+      future_top_level: 'future SDK data must fail closed',
+    };
+    const original = structuredClone(captureResult);
+
+    expect(beforeSend(captureResult)).toStrictEqual({
+      uuid: captureUuid,
+      event: 'service_viewed',
+      timestamp: captureTimestamp,
+      properties: {
+        service: 'marine',
+        token: 'key',
+        $current_url: 'https://briancline.co/marine',
+      },
+    });
+    expect(captureResult).toStrictEqual(original);
+    expect(beforeSend({
+      uuid: 'not-a-uuid',
+      event: 'service_viewed',
+      timestamp: '2026-08-06T12:00:00.000Z',
+      properties: { service: 'marine', token: 'key' },
+    })).toBeNull();
+    expect(beforeSend({
+      uuid: captureUuid,
+      event: 'identify',
+      timestamp: captureTimestamp,
+      properties: { service: 'marine', token: 'key' },
+    })).toBeNull();
   });
 
   it('drops malformed SDK-enriched events and fails closed when the safe URL is unavailable', () => {
@@ -211,16 +445,18 @@ describe('PostHog initialization contract', () => {
     analytics.initialize();
 
     expect(sdk.calls.inits[0].options.before_send({
-      uuid: 'uuid-service',
+      uuid: captureUuid,
       event: 'service_viewed',
+      timestamp: captureTimestamp,
       properties: {
         service: 'marine',
         $current_url: 'https://briancline.co/marine?private=true',
         $session_entry_url: 'private customer entry URL',
       },
     })).toStrictEqual({
-      uuid: 'uuid-service',
+      uuid: captureUuid,
       event: 'service_viewed',
+      timestamp: captureTimestamp,
       properties: {
         service: 'marine',
         $current_url: 'https://briancline.co/marine',

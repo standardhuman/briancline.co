@@ -167,6 +167,118 @@ describe('browser monitoring privacy contract', () => {
     });
   });
 
+  it('redacts sensitive scalar leaves under innocent keys without changing safe values or input data', () => {
+    const sdk = createSdk();
+    const monitoring = createBrowserMonitoring({ sdk, env: { VITE_SENTRY_DSN: 'dsn' } });
+    monitoring.captureException(new Error('initialize'));
+    const beforeSend = sdk.calls.inits[0].beforeSend;
+    const fakeSlackToken = ['xoxb', '123456789012', '123456789012', 'abcdefghijklmnop'].join('-');
+    const event = {
+      extra: {
+        detail: 'Contact ada@example.com or +1 (415) 555-0123',
+        items: [{
+          value: 'Use Bearer abc.def-123, sk_live_51N6wF6ABCDEF123456, or eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature',
+        }],
+        safe: 'ordinary diagnostic detail',
+      },
+      contexts: {
+        app: {
+          detail: 'GitHub credential ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890',
+          releaseChannel: 'stable',
+        },
+      },
+      breadcrumbs: [{
+        category: 'ui.click',
+        message: `Slack ${fakeSlackToken} and token=reset-secret-123456`,
+        data: {
+          detail: 'Recipient ada@example.com used Bearer breadcrumb-secret',
+          action: 'submit',
+        },
+      }],
+    };
+    const original = structuredClone(event);
+
+    expect(beforeSend(event)).toStrictEqual({
+      extra: {
+        detail: 'Contact [redacted-email] or [redacted-phone]',
+        items: [{ value: 'Use [redacted-bearer], [redacted-token], or [redacted-token]' }],
+        safe: 'ordinary diagnostic detail',
+      },
+      contexts: {
+        app: {
+          detail: 'GitHub credential [redacted-token]',
+          releaseChannel: 'stable',
+        },
+      },
+      breadcrumbs: [{
+        category: 'ui.click',
+        message: 'Slack [redacted-token] and [redacted-token]',
+        data: {
+          detail: 'Recipient [redacted-email] used [redacted-bearer]',
+          action: 'submit',
+        },
+      }],
+    });
+    expect(event).toStrictEqual(original);
+  });
+
+  it('redacts modern provider credentials from scalar leaves', () => {
+    const sdk = createSdk();
+    const monitoring = createBrowserMonitoring({ sdk, env: { VITE_SENTRY_DSN: 'dsn' } });
+    monitoring.captureException(new Error('initialize'));
+    const beforeSend = sdk.calls.inits[0].beforeSend;
+    const fakeStripeRestrictedKey = ['rk', 'live', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'].join('_');
+    const event = {
+      extra: {
+        values: [
+          'AWS AKIAIOSFODNN7EXAMPLE',
+          'temporary ASIAIOSFODNN7EXAMPLE',
+          'OpenAI sk-proj-abcdefghijklmnopqrstuvwxyz1234567890',
+          'generic sk-abcdefghijklmnopqrstuvwxyz1234567890',
+          'Anthropic sk-ant-api03-abcdefghijklmnopqrstuvwxyz1234567890',
+          'Google AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ123456789',
+          'Resend re_ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890',
+          `Stripe ${fakeStripeRestrictedKey}`,
+        ],
+      },
+    };
+    const original = structuredClone(event);
+
+    expect(beforeSend(event)).toStrictEqual({
+      extra: {
+        values: [
+          'AWS [redacted-token]',
+          'temporary [redacted-token]',
+          'OpenAI [redacted-token]',
+          'generic [redacted-token]',
+          'Anthropic [redacted-token]',
+          'Google [redacted-token]',
+          'Resend [redacted-token]',
+          'Stripe [redacted-token]',
+        ],
+      },
+    });
+    expect(event).toStrictEqual(original);
+  });
+
+  it('preserves dates, short numeric diagnostics, and non-JWT dotted values', () => {
+    const sdk = createSdk();
+    const monitoring = createBrowserMonitoring({ sdk, env: { VITE_SENTRY_DSN: 'dsn' } });
+    monitoring.captureException(new Error('initialize'));
+    const beforeSend = sdk.calls.inits[0].beforeSend;
+    const event = {
+      extra: {
+        detail: 'Build 12345678 on 2026-08-06 reported abcdefgh.ijklmnop.qrstuv',
+      },
+      breadcrumbs: [{
+        category: 'ui.click',
+        message: 'Trace abcdefgh.ijklmnop.qrstuv at 2026-08-06 build 12345678',
+      }],
+    };
+
+    expect(beforeSend(event)).toStrictEqual(event);
+  });
+
   it('removes secrets from navigation and console breadcrumbs without mutating the captured event', () => {
     const sdk = createSdk();
     const monitoring = createBrowserMonitoring({ sdk, env: { VITE_SENTRY_DSN: 'dsn' } });
@@ -317,6 +429,88 @@ describe('browser monitoring privacy contract', () => {
         { category: 'navigation', data: { url: '/orders/12345678' } },
         { category: 'navigation', data: { url: '/archive/2026/08/06' } },
         { category: 'navigation', data: { url: '/orders/20260806/status' } },
+      ],
+    });
+    expect(event).toStrictEqual(original);
+  });
+
+  it('drops raw or encoded token and JWT pathnames while preserving safe routes', () => {
+    const sdk = createSdk();
+    const monitoring = createBrowserMonitoring({ sdk, env: { VITE_SENTRY_DSN: 'dsn' } });
+    monitoring.captureException(new Error('initialize'));
+    const beforeSend = sdk.calls.inits[0].beforeSend;
+    const fakeSlackToken = ['xoxb', '123456789012', '123456789012', 'abcdefghijklmnop'].join('-');
+    const event = {
+      breadcrumbs: [
+        {
+          category: 'navigation',
+          data: {
+            from: '/callback/eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature',
+            to: '/checkout/sk%5Flive%5F51N6wF6ABCDEF123456',
+            url: '/integrations/ghp%255FABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890',
+          },
+        },
+        {
+          category: 'navigation',
+          data: {
+            from: `/hooks/${fakeSlackToken}`,
+            to: '/reset/token%253Dreset-secret-123456',
+            url: 'https://briancline.co/docs/tokenization?token=query-only-secret',
+          },
+        },
+      ],
+    };
+    const original = structuredClone(event);
+
+    expect(beforeSend(event)).toStrictEqual({
+      breadcrumbs: [
+        { category: 'navigation', data: {} },
+        { category: 'navigation', data: { url: '/docs/tokenization' } },
+      ],
+    });
+    expect(event).toStrictEqual(original);
+  });
+
+  it('drops raw or encoded modern provider credentials from pathnames', () => {
+    const sdk = createSdk();
+    const monitoring = createBrowserMonitoring({ sdk, env: { VITE_SENTRY_DSN: 'dsn' } });
+    monitoring.captureException(new Error('initialize'));
+    const beforeSend = sdk.calls.inits[0].beforeSend;
+    const event = {
+      breadcrumbs: [
+        {
+          category: 'navigation',
+          data: {
+            from: '/aws/AKIAIOSFODNN7EXAMPLE',
+            to: '/openai/sk%2Dproj%2Dabcdefghijklmnopqrstuvwxyz1234567890',
+            url: '/anthropic/sk%252Dant%252Dapi03%252Dabcdefghijklmnopqrstuvwxyz1234567890',
+          },
+        },
+        {
+          category: 'navigation',
+          data: {
+            from: '/google/AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ123456789',
+            to: '/resend/re%5FABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890',
+            url: '/stripe/rk%255Flive%255FABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890',
+          },
+        },
+        {
+          category: 'navigation',
+          data: {
+            from: '/openai/sk-abcdefghijklmnopqrstuvwxyz1234567890',
+            to: '/aws/ASIAIOSFODNN7EXAMPLE',
+            url: '/trace/abcdefgh.ijklmnop.qrstuv',
+          },
+        },
+      ],
+    };
+    const original = structuredClone(event);
+
+    expect(beforeSend(event)).toStrictEqual({
+      breadcrumbs: [
+        { category: 'navigation', data: {} },
+        { category: 'navigation', data: {} },
+        { category: 'navigation', data: { url: '/trace/abcdefgh.ijklmnop.qrstuv' } },
       ],
     });
     expect(event).toStrictEqual(original);

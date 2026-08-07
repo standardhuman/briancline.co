@@ -8,6 +8,9 @@ const allowedTagValues = {
 };
 
 const initializedRuntimeSdks = new WeakSet();
+const phoneLike = /(?<!\d)(?:\+?1[\s()._~\/-]*)?\(?\d{3}\)?[\s()._~\/-]*\d{3}[\s()._~\/-]*\d{4}(?!\d)/;
+const jwtLike = /\beyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{4,}\b/;
+const commonSecret = /\b(?:(?:AKIA|ASIA)[A-Z0-9]{16}|(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{8,}|sk-[A-Za-z0-9_-]{20,}|AIza[A-Za-z0-9_-]{30,}|re_[A-Za-z0-9_-]{24,}|github_pat_[A-Za-z0-9_]{8,}|gh[pousr]_[A-Za-z0-9]{8,}|xox[baprs]-[A-Za-z0-9-]{8,}|(?:token|jwt|secret|api[_-]?key)\s*[:=._-]\s*[A-Za-z0-9._~+/-]{6,})\b/i;
 
 function trimmed(value) {
   return typeof value === 'string' ? value.trim() : '';
@@ -19,10 +22,13 @@ function redactText(value) {
   return value
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[redacted-email]')
     .replace(/\bBearer\s+[A-Z0-9._~+/=-]+/gi, '[redacted-bearer]')
-    .replace(/(?:\+?\d[\d\s().-]{6,}\d)/g, '[redacted-phone]');
+    .replace(new RegExp(jwtLike.source, 'g'), '[redacted-token]')
+    .replace(new RegExp(commonSecret.source, 'gi'), '[redacted-token]')
+    .replace(new RegExp(phoneLike.source, 'g'), '[redacted-phone]');
 }
 
 function scrubData(value) {
+  if (typeof value === 'string') return redactText(value);
   if (Array.isArray(value)) return value.map(scrubData);
   if (!value || typeof value !== 'object') return value;
 
@@ -36,7 +42,9 @@ function scrubData(value) {
 function hasSensitivePathContent(value) {
   return /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(value)
     || /\bBearer\s+[A-Z0-9._~+/=-]+/i.test(value)
-    || /(?:^|[^\d])(?:\+?1[\s()._~\/-]*)?\(?\d{3}\)?[\s()._~\/-]*\d{3}[\s()._~\/-]*\d{4}(?!\d)/.test(value);
+    || phoneLike.test(value)
+    || jwtLike.test(value)
+    || commonSecret.test(value);
 }
 
 function pathOnlyUrl(value) {
@@ -83,7 +91,7 @@ function scrubBreadcrumb(breadcrumb) {
     if (breadcrumb.category === 'console') delete data.arguments;
     for (const key of ['from', 'to', 'url']) {
       if (!Object.hasOwn(data, key)) continue;
-      const pathname = pathOnlyUrl(data[key]);
+      const pathname = pathOnlyUrl(breadcrumb.data[key]);
       if (pathname === undefined) delete data[key];
       else data[key] = pathname;
     }
