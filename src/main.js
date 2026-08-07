@@ -2,6 +2,8 @@
 
 import { inject } from '@vercel/analytics';
 import { captureException, init, setTags, withScope } from '@sentry/browser';
+import posthog from 'posthog-js/dist/module.slim';
+import { createAnalytics, sanitizeAttribution } from './analytics.js';
 import { createBrowserMonitoring } from './monitoring.js';
 
 const monitoring = createBrowserMonitoring({
@@ -9,6 +11,14 @@ const monitoring = createBrowserMonitoring({
   env: import.meta.env,
 });
 monitoring.initialize({ surface: 'landing', stage: 'browser-runtime' });
+
+const analytics = createAnalytics({ sdk: posthog, env: import.meta.env });
+analytics.initialize();
+analytics.capture('$pageview', {
+  surface: 'landing',
+  service: 'landing',
+  ...sanitizeAttribution({ search: globalThis.location?.search, referrer: document.referrer }),
+});
 
 // Initialize Vercel Analytics
 inject();
@@ -40,6 +50,17 @@ window.addEventListener('scroll', () => {
 // Contact form handling
 const contactForm = document.getElementById('contact-form');
 if (contactForm) {
+  let contactStarted = false;
+  contactForm.addEventListener('input', () => {
+    if (contactStarted) return;
+    contactStarted = true;
+    analytics.capture('contact_started', {
+      surface: 'landing',
+      service: 'landing',
+      step: 'form',
+    });
+  });
+
   contactForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -68,6 +89,13 @@ if (contactForm) {
         submitBtn.classList.remove('bg-gray-900', 'hover:bg-gray-800');
         submitBtn.classList.add('bg-green-600');
         contactForm.reset();
+        analytics.capture('contact_submitted', {
+          surface: 'landing',
+          service: 'landing',
+          step: 'submit',
+          result: 'success',
+        });
+        contactStarted = false;
 
         // Reset button after 3 seconds
         setTimeout(() => {
@@ -83,6 +111,12 @@ if (contactForm) {
       submitBtn.textContent = 'Failed - Try Again';
       submitBtn.classList.remove('bg-gray-900', 'hover:bg-gray-800');
       submitBtn.classList.add('bg-red-600');
+      analytics.capture('contact_submitted', {
+        surface: 'landing',
+        service: 'landing',
+        step: 'submit',
+        result: 'failed',
+      });
 
       setTimeout(() => {
         submitBtn.textContent = originalText;

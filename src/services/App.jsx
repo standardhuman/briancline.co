@@ -1,5 +1,6 @@
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React, { useEffect } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { normalizeService, sanitizeAttribution } from "../analytics.js";
 import ServiceLayout from "./components/ServiceLayout";
 import ScrollToTop from "./components/ScrollToTop";
 import Marine from "./pages/Marine";
@@ -12,9 +13,31 @@ import Detailing from "./pages/Detailing";
 import Terms from "./pages/Terms";
 import RecurringAuthorization from "./pages/RecurringAuthorization";
 
-export default function App() {
+function ServicesAnalyticsTracker({ analytics }) {
+  const location = useLocation();
+
+  useEffect(() => {
+    const properties = {
+      surface: "services",
+      service: normalizeService(location.pathname),
+    };
+    analytics?.capture("$pageview", {
+      ...properties,
+      ...sanitizeAttribution({
+        search: location.search,
+        referrer: globalThis.document?.referrer,
+      }),
+    });
+    analytics?.capture("service_viewed", properties);
+  }, [analytics, location.pathname, location.search]);
+
+  return null;
+}
+
+export default function App({ analytics }) {
   return (
     <BrowserRouter>
+      <ServicesAnalyticsTracker analytics={analytics} />
       <ScrollToTop />
       <Routes>
         <Route element={<ServiceLayout />}>
@@ -24,7 +47,7 @@ export default function App() {
           {/* Hull Cleaning (new canonical URL) */}
           <Route path="/hull-cleaning" element={<Diving />} />
           <Route path="/hull-cleaning/calculator" element={<Diving />} />
-          <Route path="/hull-cleaning/order" element={<DivingOrder />} />
+          <Route path="/hull-cleaning/order" element={<DivingOrder analytics={analytics} />} />
 
           {/* Legacy diving routes → redirect to new URLs */}
           <Route path="/diving" element={<Navigate to="/hull-cleaning" replace />} />
@@ -40,13 +63,13 @@ export default function App() {
           <Route path="/training/faq" element={<Navigate to="/sailing-lessons/faq" replace />} />
 
           {/* Boat Detailing (new canonical URL) */}
-          <Route path="/boat-detailing" element={<Detailing />} />
+          <Route path="/boat-detailing" element={<Detailing analytics={analytics} />} />
 
           {/* Legacy detailing route → redirect to new URL */}
           <Route path="/detailing" element={<Navigate to="/boat-detailing" replace />} />
 
           {/* Deliveries (unchanged) */}
-          <Route path="/deliveries" element={<Deliveries />} />
+          <Route path="/deliveries" element={<Deliveries analytics={analytics} />} />
 
           {/* Legal — required for chargeback hardening; linked from order form + footer */}
           <Route path="/terms" element={<Terms />} />

@@ -468,6 +468,7 @@ describe('safe analytics helpers', () => {
       'item_recovery',
       'propeller_service',
       'anodes_only',
+      'recurring_cleaning',
       '/private-customer-path',
       null,
     ].map(normalizeService)).toStrictEqual([
@@ -483,6 +484,7 @@ describe('safe analytics helpers', () => {
       'item-recovery',
       'propeller-service',
       'anodes-only',
+      'hull-cleaning',
       'unknown',
       'unknown',
     ]);

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import PageHero from "../components/PageHero";
 import PageCTA from "../components/PageCTA";
 import OptImage from "../components/OptImage";
@@ -29,7 +29,7 @@ const steps = [
 
 const DELIVERY_API_URL = "/api/delivery-inquiry";
 
-function DeliveryInquiryForm() {
+function DeliveryInquiryForm({ analytics }) {
   const [form, setForm] = useState({
     name: "", email: "", phone: "",
     vesselMake: "", vesselModel: "", vesselLength: "", vesselYear: "", vesselCondition: "",
@@ -41,6 +41,15 @@ function DeliveryInquiryForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  const contactStarted = useRef(false);
+
+  const markContactStarted = () => {
+    if (contactStarted.current) return;
+    contactStarted.current = true;
+    analytics?.capture("contact_started", {
+      surface: "services", service: "deliveries", step: "form",
+    });
+  };
 
   const updateField = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -58,9 +67,15 @@ function DeliveryInquiryForm() {
       });
       if (!res.ok) throw new Error("Failed to send");
       setSubmitted(true);
+      analytics?.capture("contact_submitted", {
+        surface: "services", service: "deliveries", step: "submit", result: "success",
+      });
     } catch {
       setError("Failed to send. Email deliveries@briancline.co directly.");
       setSubmitting(false);
+      analytics?.capture("contact_submitted", {
+        surface: "services", service: "deliveries", step: "submit", result: "failed",
+      });
     }
   }
 
@@ -81,7 +96,7 @@ function DeliveryInquiryForm() {
         <CardDescription>Tell me about your vessel and where it needs to go. I'll get back to you within 24 hours.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} onChangeCapture={markContactStarted} className="space-y-6">
           {/* Vessel Details */}
           <div>
             <Label className="text-base font-semibold mb-3 block">Vessel Details</Label>
@@ -154,7 +169,7 @@ function DeliveryInquiryForm() {
   );
 }
 
-export default function Deliveries() {
+export default function Deliveries({ analytics }) {
   return (
     <div>
       <PageMeta
@@ -291,7 +306,7 @@ export default function Deliveries() {
       {/* Delivery Inquiry Form */}
       <section className="py-16 md:py-24 bg-gray-50" id="inquiry">
         <div className="max-w-2xl mx-auto px-6">
-          <DeliveryInquiryForm />
+          <DeliveryInquiryForm analytics={analytics} />
         </div>
       </section>
 

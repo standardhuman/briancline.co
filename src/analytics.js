@@ -37,6 +37,7 @@ const attributionKeys = [
 
 const sourceServices = new Map([
   ['cleaning', 'hull-cleaning'],
+  ['recurring_cleaning', 'hull-cleaning'],
   ['diving', 'hull-cleaning'],
   ['underwater_inspection', 'hull-cleaning'],
   ['detailing', 'boat-detailing'],
