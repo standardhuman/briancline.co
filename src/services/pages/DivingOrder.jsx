@@ -14,6 +14,7 @@ import PageMeta from "../components/PageMeta";
 import ConditionsPricing from "../components/ConditionsPricing";
 import EstimateScale from "../components/EstimateScale";
 import ConditionSelects from "../components/ConditionSelects";
+import { ACTIVE_VERSION } from "./legal/terms-content";
 import {
   Ship, MapPin, User, Wrench, CreditCard, ArrowRight, Loader2,
   CheckCircle2, AlertCircle, Anchor, Calendar
@@ -24,9 +25,8 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
-// Active terms version. Bump when terms_documents gets a new effective row.
 // Server validates this matches an existing version before persisting consent.
-const TERMS_VERSION = "2026-05-01";
+const TERMS_VERSION = ACTIVE_VERSION;
 
 // Berkeley-only service area: we only service boats berthed in Berkeley.
 // Surfaced via <datalist> to nudge customers toward a recognized name.
