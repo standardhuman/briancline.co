@@ -12,6 +12,12 @@ import {
   resolveProviderOwnerUserId,
   type ProviderOwnerLookup,
 } from '../_shared/provider-resolution.ts'
+import {
+  calculateCanonicalQuote,
+  parseSubmittedQuote,
+  quotesEqual,
+  type CheckoutQuote,
+} from '../_shared/checkout-quote.ts'
 
 const stripeMode = Deno.env.get('STRIPE_MODE') || 'test'
 const stripeSecretKey = stripeMode === 'live'
@@ -239,34 +245,35 @@ serve(async (req) => {
       }, {} as Record<string, number>)
     }
 
-    const validatePrice = (estimate: number, service: string, details: any): boolean => {
-      const MIN_CHARGE = pricingConfig['minimum_service_charge'] || 99
-      const serviceRates: Record<string, any> = {
-        'Cleaning & Anodes': {
-          rate: details?.frequency === 'one_time' || formData.serviceInterval === 'one-time'
-            ? (pricingConfig['onetime_cleaning_rate'] || 6.00) : (pricingConfig['recurring_cleaning_rate'] || 4.50),
-          type: 'per_foot',
-        },
-        'Item Recovery': { rate: pricingConfig['item_recovery_rate'] || 199, type: 'flat' },
-        'Underwater Inspection': { rate: pricingConfig['underwater_inspection_rate'] || 3.99, type: 'per_foot' },
-        'Propeller Service': { rate: pricingConfig['propeller_service_rate'] || 349, type: 'flat' },
-        'Anodes Only': { rate: pricingConfig['anodes_only_rate'] || 149, type: 'flat' },
-      }
-      const serviceConfig = serviceRates[service]
-      if (!serviceConfig) return false
-      if (serviceConfig.type === 'flat') {
-        return estimate >= serviceConfig.rate && estimate <= serviceConfig.rate * 5
-      } else {
-        const boatLength = parseInt(details?.boatLength || formData.boatLength || '0')
-        if (boatLength < 10 || boatLength > 300) return false
-        const basePrice = Math.max(boatLength * serviceConfig.rate, MIN_CHARGE)
-        const maxPrice = basePrice * 4
-        return estimate >= MIN_CHARGE && estimate <= maxPrice
-      }
+    // Accept the old exact-only payload during the site/function rollout, but
+    // subject it to the same canonical calculation. New clients always send the
+    // discriminated quote. This check remains before every customer/Stripe write.
+    const legacyEstimateCents = Number.isFinite(Number(formData.estimate)) && Number(formData.estimate) > 0
+      ? Math.round(Number(formData.estimate)) * 100
+      : null
+    const submittedQuote = parseSubmittedQuote(formData.quote)
+      ?? (formData.quote == null && legacyEstimateCents != null
+        ? { mode: 'exact', amountCents: legacyEstimateCents } as CheckoutQuote
+        : null)
+    const canonicalQuote = calculateCanonicalQuote(formData, pricingConfig)
+    if (!submittedQuote || !canonicalQuote || !quotesEqual(submittedQuote, canonicalQuote)) {
+      return new Response(JSON.stringify({
+        error: 'Pricing changed while this page was open. Please refresh and review the updated estimate.',
+        code: 'pricing_changed',
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 409 })
     }
-    if (!validatePrice(formData.estimate, formData.service, formData.serviceDetails)) {
-      throw new Error('Invalid price calculation')
-    }
+    const checkoutQuote = canonicalQuote
+    const exactAmount = checkoutQuote.mode === 'exact' ? checkoutQuote.amountCents / 100 : null
+    const orderQuoteColumns = checkoutQuote.mode === 'exact'
+      ? {
+          estimate_mode: 'exact', estimated_amount: exactAmount,
+          estimated_min_amount: null, estimated_max_amount: null,
+        }
+      : {
+          estimate_mode: 'range', estimated_amount: null,
+          estimated_min_amount: checkoutQuote.minCents / 100,
+          estimated_max_amount: checkoutQuote.maxCents / 100,
+        }
 
     const { data: customer, error: customerError } = await supabase
       .from('customers').upsert({
@@ -379,11 +386,16 @@ serve(async (req) => {
         .select('id, order_number, stripe_setup_intent_id, requires_review')
         .eq('customer_id', customer.id)
         .eq('service_type', formData.service)
-        .eq('estimated_amount', formData.estimate)
+        .eq('estimate_mode', checkoutQuote.mode)
         .in('status', ['pending', 'pending_review'])
         .gte('created_at', since)
         .order('created_at', { ascending: false })
         .limit(1)
+      dupQuery = checkoutQuote.mode === 'exact'
+        ? dupQuery.eq('estimated_amount', checkoutQuote.amountCents / 100)
+        : dupQuery
+            .eq('estimated_min_amount', checkoutQuote.minCents / 100)
+            .eq('estimated_max_amount', checkoutQuote.maxCents / 100)
       dupQuery = boat?.id ? dupQuery.eq('boat_id', boat.id) : dupQuery.is('boat_id', null)
       const { data: recentDup } = (await dupQuery.maybeSingle()) as { data: any }
       if (recentDup?.stripe_setup_intent_id) {
@@ -460,7 +472,7 @@ serve(async (req) => {
       customer_id: customer.id, boat_id: boat?.id || null,
       marina_id: marina?.id || null, dock: formData.dock || null, slip_number: formData.slipNumber || null,
       service_type: formData.service, service_interval: formData.serviceInterval || 'one-time',
-      estimated_amount: formData.estimate, status: requiresReview ? 'pending_review' : 'pending',
+      ...orderQuoteColumns, status: requiresReview ? 'pending_review' : 'pending',
       service_details: formData.serviceDetails || null, notes: formData.customerNotes || null,
       requires_review: requiresReview,
     }
@@ -477,7 +489,10 @@ serve(async (req) => {
     if (!order) throw new Error('Failed to create order')
 
     if (formData.serviceInterval !== 'one-time' && !requiresReview) {
-      const intervalMonths = { '1': 1, '2': 2, '3': 3, '6': 6 }[formData.serviceInterval] || 1
+      const intervalMonths = {
+        '1': 1, monthly: 1, '2': 2, bimonthly: 2,
+        '3': 3, quarterly: 3, '6': 6, biannual: 6,
+      }[formData.serviceInterval] || 1
       await supabase.from('service_schedules').insert({
         customer_id: customer.id, boat_id: boat?.id,
         service_type: formData.service, interval_months: intervalMonths,
@@ -491,14 +506,16 @@ serve(async (req) => {
       'Propeller Service': 'propeller_service', 'Anodes Only': 'anodes_only',
     }
     const frequencyMap: Record<string, string> = {
-      'one-time': 'one-time', '1': 'monthly', '2': 'two_months', '3': 'quarterly', '6': 'biannual',
+      'one-time': 'one-time', '1': 'monthly', monthly: 'monthly',
+      '2': 'two_months', bimonthly: 'two_months',
+      '3': 'quarterly', quarterly: 'quarterly', '6': 'biannual', biannual: 'biannual',
     }
     const customerServiceData = {
       customer_id: stripeCustomer.id, boat_id: boat?.id || null,
       service_type: serviceTypeMap[formData.service] || 'onetime_cleaning',
       service_name: formData.service,
       frequency: frequencyMap[formData.serviceInterval] || 'one-time',
-      base_price: formData.estimate, boat_length: parseInt(formData.boatLength) || null,
+      base_price: exactAmount, boat_length: parseInt(formData.boatLength) || null,
       includes_anodes: formData.serviceDetails?.includesAnodes || false,
       twin_engines: formData.serviceDetails?.twinEngines || false,
       hull_type: formData.serviceDetails?.hullType || null,
@@ -508,11 +525,22 @@ serve(async (req) => {
     }
     await supabase.from('customer_services').insert(customerServiceData)
 
+    const quoteMetadata: Record<string, string> = checkoutQuote.mode === 'exact'
+      ? {
+          quote_mode: checkoutQuote.mode,
+          estimated_amount: (checkoutQuote.amountCents / 100).toString(),
+        }
+      : {
+          quote_mode: checkoutQuote.mode,
+          estimated_min: checkoutQuote.minCents.toString(),
+          estimated_max: checkoutQuote.maxCents.toString(),
+        }
+
     const setupIntent = await stripe.setupIntents.create({
       customer: stripeCustomer.id, payment_method_types: ['card'], usage: 'off_session',
       metadata: {
         order_id: order.id, order_number: orderNumber, service_type: formData.service,
-        service_interval: formData.serviceInterval, estimated_amount: formData.estimate.toString(),
+        service_interval: formData.serviceInterval, ...quoteMetadata,
         requires_review: String(requiresReview),
       },
     })
@@ -521,11 +549,14 @@ serve(async (req) => {
 
     const isRecurringOrder = formData.serviceInterval !== 'one-time'
     const annualizedCents = (() => {
-      if (!isRecurringOrder) return null
-      const monthsBetween = parseInt(formData.serviceInterval) || 1
+      if (!isRecurringOrder || checkoutQuote.mode !== 'exact') return null
+      const monthsBetween = {
+        '1': 1, monthly: 1, '2': 2, bimonthly: 2,
+        '3': 3, quarterly: 3, '6': 6, biannual: 6,
+      }[formData.serviceInterval] || 1
       if (monthsBetween < 1) return null
       const perYear = Math.round(12 / monthsBetween)
-      return Math.round(Number(formData.estimate) * 100 * perYear)
+      return checkoutQuote.amountCents * perYear
     })()
 
     const { data: authRow, error: authError } = await supabase
@@ -534,11 +565,14 @@ serve(async (req) => {
         user_agent: typeof auth.userAgent === 'string' ? auth.userAgent.slice(0, 1000) : null,
         typed_name: typedName, terms_version: auth.termsVersion,
         recurring_terms_version: isRecurringOrder ? (auth.recurringTermsVersion || auth.termsVersion) : null,
-        quoted_price_cents: Math.round(Number(formData.estimate) * 100),
+        quote_mode: checkoutQuote.mode,
+        quoted_price_cents: checkoutQuote.mode === 'exact' ? checkoutQuote.amountCents : null,
+        quoted_min_cents: checkoutQuote.mode === 'range' ? checkoutQuote.minCents : null,
+        quoted_max_cents: checkoutQuote.mode === 'range' ? checkoutQuote.maxCents : null,
         quoted_frequency: formData.serviceInterval, quoted_service_type: formData.service,
         quoted_annualized_cents: annualizedCents,
         quote_snapshot: {
-          service: formData.service, interval: formData.serviceInterval, estimate: formData.estimate,
+          service: formData.service, interval: formData.serviceInterval, quote: checkoutQuote,
           boatLength: formData.boatLength, boatType: formData.serviceDetails?.boatType,
           hullType: formData.serviceDetails?.hullType, serviceDetails: formData.serviceDetails || null,
           referer: auth.referer || null,

@@ -535,6 +535,10 @@ function OrderForm({ searchParams, navigate }) {
         serviceInterval: isCleaningService ? form.frequency : "one-time",
         customerNotes: form.notes,
         quote: checkoutQuote,
+        // Rollout bridge: the old edge function still reads `estimate`. Exact
+        // checkouts remain compatible while a range intentionally sends zero and
+        // stays blocked until the quote-aware function is deployed.
+        estimate: checkoutQuote.mode === "exact" ? checkoutQuote.amountCents / 100 : 0,
         service: service.name,
         billingZip: form.billingZip,
         // Empty string when absent (old links / organic visitors) — the edge fn
