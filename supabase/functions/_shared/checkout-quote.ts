@@ -15,6 +15,17 @@ const DEFAULTS: PricingConfig = {
   anode_installation_rate: 15,
 }
 
+// These three standalone-service prices are the customer-facing contract
+// shipped by diving-calculator.js. Production's legacy config table currently
+// contains rounded $200/$350/$4 values; using those here would make strict
+// validation reject the existing $199/$349/$3.99 checkout flows. Keep the
+// shipped values pinned until both surfaces move to one provider price book.
+const SHIPPED_STANDALONE_RATES = {
+  underwaterInspection: 3.99,
+  itemRecovery: 199,
+  propellerService: 349,
+}
+
 const PAINT_AGES = ['<6mo', '6-12mo', '1-1.5yr', '1.5-2yr', '2+yr'] as const
 const LAST_CLEANED = ['<2', '2-4', '5-6', '7-8', '9-12', '13-24', '24+'] as const
 
@@ -131,13 +142,13 @@ export function calculateCanonicalQuote(formData: any, config: PricingConfig = {
   const minimum = configured(config, 'minimum_service_charge')
 
   if (service === 'Item Recovery') {
-    return exact(configured(config, 'item_recovery_rate'))
+    return exact(SHIPPED_STANDALONE_RATES.itemRecovery)
   }
 
   if (service === 'Propeller Service') {
     const propellers = parseInteger(formData?.propellerCount ?? details.propellerCount, 1, 8)
     if (propellers == null) return null
-    return exact(configured(config, 'propeller_service_rate') * propellers)
+    return exact(SHIPPED_STANDALONE_RATES.propellerService * propellers)
   }
 
   if (service === 'Anodes Only') {
@@ -159,7 +170,7 @@ export function calculateCanonicalQuote(formData: any, config: PricingConfig = {
   const isOneTime = !isCleaning || ['one_time', 'one-time', 'onetime'].includes(frequency)
   const rate = isCleaning
     ? configured(config, isOneTime ? 'onetime_cleaning_rate' : 'recurring_cleaning_rate')
-    : configured(config, 'underwater_inspection_rate')
+    : SHIPPED_STANDALONE_RATES.underwaterInspection
 
   const base = boatLength * rate
   let fixed = base

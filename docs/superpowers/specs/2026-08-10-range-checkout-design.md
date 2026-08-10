@@ -46,7 +46,7 @@ This means existing Pro links that omit `estimate` need no new query parameters.
 
 ### Server authority
 
-The edge function receives the discriminated quote plus the pricing inputs. A pure shared pricing module recomputes the canonical exact quote or range from `business_pricing_config` and the validated service details.
+The edge function receives the discriminated quote plus the pricing inputs. A pure shared pricing module recomputes the canonical exact quote or range from the validated service details. Cleaning, minimum-charge, and anode rates use `business_pricing_config`. The existing customer-facing standalone rates remain pinned to the shipped calculator values (`$199` item recovery, `$349` propeller service, and `$3.99/ft` inspection) because the production legacy rows are currently rounded to `$200`, `$350`, and `$4`; parity tests prevent strict validation from rejecting the prices customers actually see until both surfaces move to one price book.
 
 Before any customer, boat, order, authorization, or Stripe write, the edge function:
 
@@ -96,7 +96,7 @@ An additive migration in the SailorSkills Pro repository updates the shared prod
 
 For range orders, `customer_services.base_price` remains null. No downstream billing path may interpret the range maximum as the amount to charge.
 
-Stripe SetupIntent metadata uses `quote_mode` plus either `estimated_amount` or `estimated_min`/`estimated_max`. Stripe still receives no charge amount.
+Stripe SetupIntent metadata uses `quote_mode` plus either `estimated_amount` or `estimated_min`/`estimated_max`, all expressed in dollars for consistency with the existing exact metadata. Stripe still receives no charge amount.
 
 ## Idempotency and downstream notifications
 

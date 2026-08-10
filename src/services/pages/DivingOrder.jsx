@@ -1255,7 +1255,7 @@ function OrderForm({ searchParams, navigate }) {
           <ProfileCard
             form={form}
             service={service}
-             checkoutQuote={checkoutQuote}
+            checkoutQuote={checkoutQuote}
             isItemRecovery={isItemRecovery}
             showFrequency={showFrequency}
           />

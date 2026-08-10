@@ -534,8 +534,8 @@ serve(async (req) => {
         }
       : {
           quote_mode: checkoutQuote.mode,
-          estimated_min: checkoutQuote.minCents.toString(),
-          estimated_max: checkoutQuote.maxCents.toString(),
+          estimated_min: (checkoutQuote.minCents / 100).toString(),
+          estimated_max: (checkoutQuote.maxCents / 100).toString(),
         }
 
     const setupIntent = await stripe.setupIntents.create({

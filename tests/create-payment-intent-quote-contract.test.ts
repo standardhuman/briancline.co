@@ -42,8 +42,8 @@ describe('create-payment-intent quote contract', () => {
     expect(source).toContain('quoted_max_cents:');
     expect(source).toContain('quote: checkoutQuote');
     expect(source).toContain("quote_mode: checkoutQuote.mode");
-    expect(source).toContain('estimated_min: checkoutQuote.minCents.toString()');
-    expect(source).toContain('estimated_max: checkoutQuote.maxCents.toString()');
+    expect(source).toContain('estimated_min: (checkoutQuote.minCents / 100).toString()');
+    expect(source).toContain('estimated_max: (checkoutQuote.maxCents / 100).toString()');
   });
 
   it('annualizes only exact recurring quotes', () => {

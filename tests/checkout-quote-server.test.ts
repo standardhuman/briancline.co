@@ -4,15 +4,18 @@ import {
   parseSubmittedQuote,
   quotesEqual,
 } from '../supabase/functions/_shared/checkout-quote.ts';
+import { deriveCheckoutQuote } from '../src/services/lib/checkout-quote.js';
 
 const PRICING = {
   minimum_service_charge: 150,
   recurring_cleaning_rate: 4.5,
   onetime_cleaning_rate: 6,
-  underwater_inspection_rate: 3.99,
-  item_recovery_rate: 199,
-  propeller_service_rate: 349,
-  anodes_only_rate: 149,
+  // Production's legacy table has drifted from the shipped standalone-service
+  // calculator. Strict quote validation must preserve what the customer sees.
+  underwater_inspection_rate: 4,
+  item_recovery_rate: 200,
+  propeller_service_rate: 350,
+  anodes_only_rate: 150,
   anode_installation_rate: 15,
 };
 
@@ -76,6 +79,19 @@ describe('calculateCanonicalQuote', () => {
       serviceDetails: { propellerCount: '2' },
     }, PRICING)).toEqual({ mode: 'exact', amountCents: 69800 });
   });
+
+  it('preserves the shipped $3.99 inspection rate despite stale legacy config', () => {
+    expect(calculateCanonicalQuote({
+      service: 'Underwater Inspection',
+      serviceInterval: 'one-time',
+      boatLength: '50',
+      serviceDetails: {
+        boatLength: '50',
+        boatType: 'powerboat',
+        hullType: 'monohull',
+      },
+    }, PRICING)).toEqual({ mode: 'exact', amountCents: 24900 });
+  });
 });
 
 describe('submitted quote validation', () => {
@@ -101,5 +117,73 @@ describe('submitted quote validation', () => {
     expect(quotesEqual(canonical, { mode: 'range', minCents: 15000, maxCents: 36600 })).toBe(true);
     expect(quotesEqual(canonical, { mode: 'range', minCents: 15000, maxCents: 36500 })).toBe(false);
     expect(quotesEqual(canonical, { mode: 'exact', amountCents: 36600 })).toBe(false);
+  });
+});
+
+describe('browser/server cleaning parity', () => {
+  it('matches every representative hull, cadence, condition, propeller, and anode combination', () => {
+    const paintAges = ['', '<6mo', '6-12mo', '1-1.5yr', '1.5-2yr', '2+yr'];
+    const cleaningAges = ['', '<2', '2-4', '5-6', '7-8', '9-12', '13-24', '24+'];
+
+    for (const boatLength of [10, 25, 42, 80]) {
+      for (const boatType of ['sailboat', 'powerboat']) {
+        for (const hullType of ['monohull', 'catamaran', 'trimaran']) {
+          for (const frequency of ['monthly', 'onetime']) {
+            for (const propellerCount of [1, 2]) {
+              for (const anodeCount of [0, 2]) {
+                for (const paintAge of paintAges) {
+                  for (const lastCleaned of cleaningAges) {
+                    const browserInputs = {
+                      serviceKey: 'cleaning', boatLength, boatType, hullType,
+                      frequency, propellerCount, anodeCount, paintAge, lastCleaned,
+                    };
+                    const browserQuote = deriveCheckoutQuote(browserInputs);
+                    const serverQuote = calculateCanonicalQuote({
+                      service: 'Cleaning & Anodes',
+                      serviceInterval: frequency === 'onetime' ? 'one-time' : frequency,
+                      boatLength: String(boatLength),
+                      serviceDetails: {
+                        boatLength: String(boatLength), boatType, hullType,
+                        frequency: frequency === 'onetime' ? 'one-time' : frequency,
+                        propellerCount: String(propellerCount),
+                        anodeCount: String(anodeCount), paintAge, lastCleaned,
+                      },
+                    }, PRICING);
+                    expect(serverQuote, JSON.stringify(browserInputs)).toEqual(browserQuote);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it('matches the shipped standalone-service calculator despite stale config rows', () => {
+    const cases = [
+      {
+        browser: { serviceKey: 'item_recovery' },
+        server: { service: 'Item Recovery', serviceInterval: 'one-time', boatLength: '0', serviceDetails: {} },
+      },
+      {
+        browser: { serviceKey: 'propeller_service', propellerCount: 2 },
+        server: { service: 'Propeller Service', serviceInterval: 'one-time', boatLength: '0', propellerCount: '2', serviceDetails: { propellerCount: '2' } },
+      },
+      {
+        browser: { serviceKey: 'anodes_only', anodeCount: 4 },
+        server: { service: 'Anodes Only', serviceInterval: 'one-time', boatLength: '0', serviceDetails: { anodeCount: '4' } },
+      },
+      {
+        browser: { serviceKey: 'underwater_inspection', boatLength: 50, boatType: 'powerboat', hullType: 'monohull' },
+        server: { service: 'Underwater Inspection', serviceInterval: 'one-time', boatLength: '50', serviceDetails: { boatLength: '50', boatType: 'powerboat', hullType: 'monohull' } },
+      },
+    ];
+
+    for (const { browser, server } of cases) {
+      expect(calculateCanonicalQuote(server, PRICING), JSON.stringify(browser)).toEqual(
+        deriveCheckoutQuote(browser),
+      );
+    }
   });
 });

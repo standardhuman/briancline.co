@@ -127,7 +127,7 @@ npx vitest run tests/create-payment-intent-quote-contract.test.ts tests/checkout
 - Create or modify in that worktree: `scripts/range-checkout-migration.test.ts`
 - Modify in that worktree: `package.json`
 
-- [ ] Fetch `origin/main`, verify the chosen migration version does not exist locally, and query production migration history read-only before finalizing the filename. If occupied, choose the next unique timestamp.
+- [x] Fetch `origin/main`, verify the chosen migration version does not exist locally, and query production migration history read-only before finalizing the filename. Production history confirmed `20260810200000` is unique.
 - [ ] Create a fresh linked worktree and branch from verified `origin/main`; do not edit the dirty Pro root checkout.
 - [ ] Add a failing migration contract test that requires additive mode/range columns, nullable legacy exact columns, mode checks, and exact-versus-range representation checks for both tables.
 - [ ] Run the focused migration test and confirm it fails because the migration is absent.
@@ -184,4 +184,4 @@ npx --no-install tsc --noEmit
 
 - [ ] Run `git diff --check`, review both full diffs, and verify no unrelated files, secrets, deployment metadata, or production mutations are present.
 - [ ] Record the two branch names, worktree paths, commit SHAs, test outputs, production rollout order, rollback notes, and the known affected-link audit (Avajogo repaired; Imagine sent but unclicked; no zero-dollar order/authorization rows).
-- [ ] Stop before push, PR, merge, production migration, edge deployment, Vercel deployment, live checkout, or sending customer outreach. Present each as a separate explicit approval gate.
+- [ ] Push and open the two PRs under Brian's subsequent explicit “Proceed until ready to merge” approval, then stop before merge, production migration, edge deployment, Vercel deployment, live checkout, or sending customer outreach.
