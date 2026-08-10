@@ -1,5 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import {
+  formatCheckoutQuoteForEmail,
+  readStoredCheckoutQuote,
+} from '../supabase/functions/_shared/stored-checkout-quote.ts';
 
 const createPaymentIntentSource = readFileSync(
   new URL('../supabase/functions/create-payment-intent/index.ts', import.meta.url),
@@ -108,5 +112,48 @@ describe('successful-order SMS webhook contract', () => {
     expect(webhookSource).toContain("return 'ambiguous'");
     expect(webhookSource).not.toMatch(/console\.(?:log|warn|error)\([^\n]*(?:orderNotifyPhoneE164|serviceRoleKey|body|setupIntent\.metadata)/);
     expect(webhookSource).not.toMatch(/['"]\+[1-9]\d{7,14}['"]/);
+  });
+});
+
+describe('range-aware confirmation email contract', () => {
+  it('reads and formats an exact stored quote without a zero fallback', () => {
+    const quote = readStoredCheckoutQuote({
+      estimate_mode: 'exact',
+      estimated_amount: 366,
+      estimated_min_amount: null,
+      estimated_max_amount: null,
+    });
+    expect(quote).toEqual({ mode: 'exact', amountCents: 36600 });
+    expect(formatCheckoutQuoteForEmail(quote)).toEqual({
+      label: 'Estimated Cost',
+      value: '$366.00',
+      phrase: '$366.00 estimated',
+    });
+  });
+
+  it('reads and formats a stored range and never renders $0', () => {
+    const quote = readStoredCheckoutQuote({
+      estimate_mode: 'range',
+      estimated_amount: null,
+      estimated_min_amount: 150,
+      estimated_max_amount: 366,
+    });
+    expect(quote).toEqual({ mode: 'range', minCents: 15000, maxCents: 36600 });
+    const formatted = formatCheckoutQuoteForEmail(quote);
+    expect(formatted).toEqual({
+      label: 'Estimated Range',
+      value: '$150.00–$366.00',
+      phrase: '$150.00–$366.00 estimated range',
+    });
+    expect(JSON.stringify(formatted)).not.toContain('$0');
+  });
+
+  it('selects and routes the stored quote through both confirmation emails', () => {
+    expect(webhookSource).toContain('estimate_mode, estimated_amount, estimated_min_amount, estimated_max_amount');
+    expect(webhookSource).toContain('const checkoutQuote = readStoredCheckoutQuote(order)');
+    expect(webhookSource).toContain('const formattedQuote = formatCheckoutQuoteForEmail(checkoutQuote)');
+    expect(webhookSource).not.toContain('Number(order.estimated_amount) || 0');
+    expect(webhookSource).toMatch(/generateOrderConfirmationEmail\([\s\S]*formattedQuote/);
+    expect(webhookSource).toMatch(/generateAdminNotificationEmail\([\s\S]*formattedQuote/);
   });
 });

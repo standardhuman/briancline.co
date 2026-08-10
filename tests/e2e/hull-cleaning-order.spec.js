@@ -217,15 +217,15 @@ test.describe('Hull Cleaning Order Form', () => {
   });
 
   test('should pre-fill form from URL params', async ({ page }) => {
-    await page.goto(`${ORDER_BASE}?service=cleaning&length=42&type=powerboat&hull=catamaran&frequency=monthly&estimate=250`);
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=35&type=sailboat&hull=monohull&frequency=quarterly&estimate=217&paintAge=%3C6mo&lastCleaned=7-8`);
     await page.waitForSelector('text=Schedule');
 
     // Check length is pre-filled
     const lengthInput = page.locator('input[placeholder="40"]');
-    await expect(lengthInput).toHaveValue('42');
+    await expect(lengthInput).toHaveValue('35');
 
     // Check estimated cost is shown
-    await expect(page.getByText('Estimated cost: $250')).toBeVisible();
+    await expect(page.getByText('Estimated cost: $217')).toBeVisible();
   });
 
   test('should pre-fill boat + owner contact fields from the field-capture link', async ({ page }) => {
@@ -304,6 +304,37 @@ test.describe('Hull Cleaning Order Form', () => {
     // "our estimate" marker (no local-prediction fallback from nothing).
     await expect(scale.getByText(/Our estimate:/)).toHaveCount(0);
     await expect(scale.getByText(/minimal growth/)).toBeVisible();
+  });
+
+  test('estimate-less Pro link presents an authorizable first-cleaning range', async ({ page }) => {
+    await page.route('**/functions/v1/get-stripe-config', (route) => route.fulfill({
+      json: { publishableKey: 'pk_test_synthetic_range_checkout' },
+    }));
+    await page.route('https://js.stripe.com/**', (route) => route.fulfill({
+      contentType: 'application/javascript',
+      body: `
+        window.Stripe = function Stripe() {
+          const element = { mount() {}, destroy() {}, on() {}, off() {}, update() {} };
+          return {
+            elements() { return { create() { return element; }, update() {} }; },
+            createToken() { return Promise.resolve({}); },
+            createPaymentMethod() { return Promise.resolve({}); },
+            confirmCardPayment() { return Promise.resolve({}); },
+            _registerWrapper() {},
+            registerAppInfo() {},
+          };
+        };
+        window.Stripe._registerWrapper = function () {};
+      `,
+    }));
+
+    await page.goto(`${ORDER_BASE}?service=cleaning&length=25&type=powerboat&hull=monohull&frequency=bimonthly&propellers=1&anodes=0&boatName=Avajogo&customerName=Jason`);
+    await page.waitForSelector('text=Schedule');
+
+    await expect(page.getByText('Estimated first-cleaning range: $150.00–$366.00', { exact: true })).toBeVisible();
+    await expect(page.getByText(/Today's estimated range: \$150\.00–\$366\.00/)).toBeVisible();
+    await expect(page.getByTestId('estimate-scale').getByText(/Our estimate:/)).toHaveCount(0);
+    await expect(page.getByText('Invalid price calculation')).toHaveCount(0);
   });
 
   test('with NO frequency param: nothing preselected, must choose, badge + reassurance shown', async ({ page }) => {

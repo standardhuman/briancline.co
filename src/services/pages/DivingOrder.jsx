@@ -9,6 +9,7 @@ import { Textarea } from "../components/ui/textarea";
 import { Label } from "../components/ui/label";
 import { cn, formatCurrency } from "../lib/utils";
 import { SERVICES, conditionPriceRange, estimateScale, PAINT_AGE_OPTIONS, LAST_CLEANED_OPTIONS } from "../lib/diving-calculator";
+import { deriveCheckoutQuote } from "../lib/checkout-quote";
 import { resolveScaleMarkerPrice } from "../lib/order-marker";
 import PageMeta from "../components/PageMeta";
 import ConditionsPricing from "../components/ConditionsPricing";
@@ -119,7 +120,7 @@ function Field({ label, required, children, className }) {
 }
 
 // ── Floating Profile Card ──
-function ProfileCard({ form, service, estimateAmount, isItemRecovery, showFrequency }) {
+function ProfileCard({ form, service, checkoutQuote, isItemRecovery, showFrequency }) {
   const boatTypeInfo = BOAT_TYPES.find((t) => t.value === form.boatType);
   const frequencyInfo = FREQUENCIES.find((f) => f.value === form.frequency);
 
@@ -211,10 +212,16 @@ function ProfileCard({ form, service, estimateAmount, isItemRecovery, showFreque
           </p>
         </div>
 
-        {estimateAmount && (
+        {checkoutQuote && (
           <div className="bg-white/15 rounded-xl p-4 text-center">
-            <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Estimated Cost</p>
-            <p className="text-3xl font-bold">{formatCurrency(estimateAmount)}</p>
+            <p className="text-white/60 text-xs uppercase tracking-wider mb-1">
+              {checkoutQuote.mode === 'range' ? "Estimated Range" : "Estimated Cost"}
+            </p>
+            <p className="text-3xl font-bold">
+              {checkoutQuote.mode === 'range'
+                ? `${formatCurrency(checkoutQuote.minCents / 100)}–${formatCurrency(checkoutQuote.maxCents / 100)}`
+                : formatCurrency(checkoutQuote.amountCents / 100)}
+            </p>
             <p className="text-white/50 text-xs mt-1">Charged after service completion</p>
           </div>
         )}
@@ -386,7 +393,7 @@ function OrderForm({ searchParams, navigate }) {
   // it returns null and the panel omits itself.
   const selectedType = BOAT_TYPES.find((t) => t.value === form.boatType);
   const conditionInputs = {
-    serviceKey: "cleaning",
+    serviceKey: isCleaningService ? "cleaning" : serviceKey,
     boatLength: form.boatLength,
     boatType: selectedType?.type || initialType,
     hullType: selectedType?.hull || initialHull,
@@ -394,11 +401,12 @@ function OrderForm({ searchParams, navigate }) {
     // the "start at two months" default the reassurance line offers — bimonthly
     // and monthly share the recurring rate). Picking one-time switches it live.
     frequency: form.frequency === "one_time" ? "onetime" : (form.frequency || "monthly"),
-    propellerCount: parseInt(initialPropellers, 10) || 1,
+    propellerCount: parseInt(isPropellerService ? form.propellerCount : initialPropellers, 10) || 1,
     paintAge: form.paintAge,
     lastCleaned: form.lastCleaned,
     anodeCount: parseInt(initialAnodes, 10) || 0,
   };
+  const checkoutQuote = deriveCheckoutQuote(conditionInputs);
   const conditionRange = isCleaningService ? conditionPriceRange(conditionInputs) : null;
   // Graphical min → worst-case scale (mirrors Pro's calculateEstimateRange). The
   // marker prefers the estimate we actually quoted (the URL param) so the page
@@ -456,6 +464,7 @@ function OrderForm({ searchParams, navigate }) {
     form.billingZip &&
     boatBerthOk &&
     frequencyChosen &&
+    checkoutQuote &&
     agreedToTerms &&
     agreedToCharge &&
     typedNameMatches &&
@@ -525,7 +534,11 @@ function OrderForm({ searchParams, navigate }) {
         billingState: form.billingState,
         serviceInterval: isCleaningService ? form.frequency : "one-time",
         customerNotes: form.notes,
-        estimate: estimateAmount || 0,
+        quote: checkoutQuote,
+        // Rollout bridge: the old edge function still reads `estimate`. Exact
+        // checkouts remain compatible while a range intentionally sends zero and
+        // stays blocked until the quote-aware function is deployed.
+        estimate: checkoutQuote.mode === "exact" ? checkoutQuote.amountCents / 100 : 0,
         service: service.name,
         billingZip: form.billingZip,
         // Empty string when absent (old links / organic visitors) — the edge fn
@@ -589,6 +602,9 @@ function OrderForm({ searchParams, navigate }) {
       if (!res.ok) {
         const errData = await res.json();
         if (errData.promoError) setPromoError(errData.error);
+        if (errData.code === "pricing_changed") {
+          throw new Error("Pricing changed while this page was open. Please refresh and review the updated estimate.");
+        }
         throw new Error(errData.error || "Failed to create payment intent");
       }
 
@@ -687,9 +703,14 @@ function OrderForm({ searchParams, navigate }) {
           </h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Fill out the form below to get on the schedule.
-            {estimateAmount && (
+            {checkoutQuote?.mode === 'exact' && (
               <span className="block mt-1 font-medium text-[#0073a8]">
-                Estimated cost: {formatCurrency(estimateAmount)}
+                Estimated cost: {formatCurrency(checkoutQuote.amountCents / 100)}
+              </span>
+            )}
+            {checkoutQuote?.mode === 'range' && (
+              <span className="block mt-1 font-medium text-[#0073a8]">
+                Estimated first-cleaning range: {formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}
               </span>
             )}
           </p>
@@ -873,9 +894,12 @@ function OrderForm({ searchParams, navigate }) {
                 ? `${FREQUENCIES.find((f) => f.value === form.frequency)?.label || ""} ${service.name}`
                 : service.name}
             </p>
-            {estimateAmount && form.frequency && (
+            {checkoutQuote && form.frequency && (
               <p className="text-sm text-gray-500 mt-1">
-                Estimated: {formatCurrency(estimateAmount)}{form.frequency !== "one_time" ? " per service" : ""}
+                {checkoutQuote.mode === 'range'
+                  ? <>Estimated range: {formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</>
+                  : <>Estimated: {formatCurrency(checkoutQuote.amountCents / 100)}</>}
+                {form.frequency !== "one_time" ? " per service" : ""}
               </p>
             )}
           </div>
@@ -1060,8 +1084,11 @@ function OrderForm({ searchParams, navigate }) {
 
             <p className="text-sm text-gray-700">
               <strong>Billing:</strong> Your card will be charged only after service completion.
-              {estimateAmount && (
-                <> Today's estimate: <span className="font-medium">{formatCurrency(estimateAmount)}</span>.</>
+              {checkoutQuote?.mode === 'exact' && (
+                <> Today's estimate: <span className="font-medium">{formatCurrency(checkoutQuote.amountCents / 100)}</span>.</>
+              )}
+              {checkoutQuote?.mode === 'range' && (
+                <> Today's estimated range: <span className="font-medium">{formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</span>.</>
               )}
             </p>
 
@@ -1109,11 +1136,11 @@ function OrderForm({ searchParams, navigate }) {
               <label htmlFor="agree-charge" className="text-sm text-gray-700 cursor-pointer leading-snug">
                 {isRecurring ? (
                   <>
-                    I authorize SailorSkills to charge my saved card for <strong>each scheduled service</strong> at the price documented in that service's report. I understand each charge may include surcharges for heavy growth or extra anodes, documented with photos. I can cancel any time before the next service by emailing diving@briancline.co.
+                    I authorize SailorSkills to charge my saved card for <strong>each scheduled service</strong> at the price documented in that service's report. {checkoutQuote?.mode === 'range' && <>Today's estimated first-cleaning range is <strong>{formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</strong>. </>}I understand each charge may include surcharges for heavy growth or extra anodes, documented with photos. I can cancel any time before the next service by emailing diving@briancline.co.
                   </>
                 ) : (
                   <>
-                    I authorize SailorSkills to save my card and charge it for this service at the price documented in the service report (which may exceed the estimate based on conditions found).
+                    I authorize SailorSkills to save my card and charge it for this service at the price documented in the service report. {checkoutQuote?.mode === 'range' && <>Today's estimated range is <strong>{formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</strong>. </>}The final price may vary based on conditions found.
                   </>
                 )}
               </label>
@@ -1228,7 +1255,7 @@ function OrderForm({ searchParams, navigate }) {
           <ProfileCard
             form={form}
             service={service}
-            estimateAmount={estimateAmount}
+            checkoutQuote={checkoutQuote}
             isItemRecovery={isItemRecovery}
             showFrequency={showFrequency}
           />
