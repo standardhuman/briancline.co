@@ -86,7 +86,7 @@ function checkRateLimits(ip: string | null, email: string | null): { ok: boolean
   return { ok: true }
 }
 
-async function loadAllowedMarinas(supabase: ReturnType<typeof createClient>): Promise<string[]> {
+async function loadAllowedMarinas(supabase: any): Promise<string[]> {
   try {
     const { data, error } = await supabase
       .from('marinas').select('name').eq('is_allowed', true)
@@ -99,6 +99,11 @@ async function loadAllowedMarinas(supabase: ReturnType<typeof createClient>): Pr
   } catch {
     return DEFAULT_ALLOWED_MARINAS
   }
+}
+
+const INTERVAL_MONTHS: Record<string, number> = {
+  '1': 1, monthly: 1, '2': 2, bimonthly: 2,
+  '3': 3, quarterly: 3, '6': 6, biannual: 6,
 }
 
 function providerOwnerLookup(supabase: any): ProviderOwnerLookup {
@@ -325,7 +330,7 @@ serve(async (req) => {
         owner_name: formData.customerName, owner_email: formData.customerEmail,
         billing_email: formData.customerEmail,
         name: formData.boatName, make: formData.boatMake, model: formData.boatModel,
-        length: parseInt(formData.boatLength) || 0, marina: formData.marinaName || null,
+        length: parseInt(String(formData.boatLength || '0'), 10) || 0, marina: formData.marinaName || null,
         dock: formData.dock || null, slip: formData.slipNumber || null, is_active: true,
       }
       if (formData.serviceDetails) {
@@ -489,10 +494,7 @@ serve(async (req) => {
     if (!order) throw new Error('Failed to create order')
 
     if (formData.serviceInterval !== 'one-time' && !requiresReview) {
-      const intervalMonths = {
-        '1': 1, monthly: 1, '2': 2, bimonthly: 2,
-        '3': 3, quarterly: 3, '6': 6, biannual: 6,
-      }[formData.serviceInterval] || 1
+      const intervalMonths = INTERVAL_MONTHS[String(formData.serviceInterval || '')] || 1
       await supabase.from('service_schedules').insert({
         customer_id: customer.id, boat_id: boat?.id,
         service_type: formData.service, interval_months: intervalMonths,
@@ -512,10 +514,10 @@ serve(async (req) => {
     }
     const customerServiceData = {
       customer_id: stripeCustomer.id, boat_id: boat?.id || null,
-      service_type: serviceTypeMap[formData.service] || 'onetime_cleaning',
+      service_type: serviceTypeMap[String(formData.service || '')] || 'onetime_cleaning',
       service_name: formData.service,
-      frequency: frequencyMap[formData.serviceInterval] || 'one-time',
-      base_price: exactAmount, boat_length: parseInt(formData.boatLength) || null,
+      frequency: frequencyMap[String(formData.serviceInterval || '')] || 'one-time',
+      base_price: exactAmount, boat_length: parseInt(String(formData.boatLength || '0'), 10) || null,
       includes_anodes: formData.serviceDetails?.includesAnodes || false,
       twin_engines: formData.serviceDetails?.twinEngines || false,
       hull_type: formData.serviceDetails?.hullType || null,
@@ -550,10 +552,7 @@ serve(async (req) => {
     const isRecurringOrder = formData.serviceInterval !== 'one-time'
     const annualizedCents = (() => {
       if (!isRecurringOrder || checkoutQuote.mode !== 'exact') return null
-      const monthsBetween = {
-        '1': 1, monthly: 1, '2': 2, bimonthly: 2,
-        '3': 3, quarterly: 3, '6': 6, biannual: 6,
-      }[formData.serviceInterval] || 1
+      const monthsBetween = INTERVAL_MONTHS[String(formData.serviceInterval || '')] || 1
       if (monthsBetween < 1) return null
       const perYear = Math.round(12 / monthsBetween)
       return checkoutQuote.amountCents * perYear
