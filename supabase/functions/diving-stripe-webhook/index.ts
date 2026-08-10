@@ -20,6 +20,11 @@ import {
   notifyOperatorForSuccessfulOrder,
   type SendSmsOutcome,
 } from '../_shared/new-order-notification.ts'
+import {
+  formatCheckoutQuoteForEmail,
+  readStoredCheckoutQuote,
+  type FormattedCheckoutQuote,
+} from '../_shared/stored-checkout-quote.ts'
 
 const stripeMode = Deno.env.get('STRIPE_MODE') || 'test'
 const stripeSecretKey = stripeMode === 'live'
@@ -163,7 +168,7 @@ async function handleSetupIntentSucceeded(
     const { data, error: orderUpdateErr } = await supabase.from('service_orders').update({
       stripe_payment_method_id: paymentMethodId, confirmation_email_sent_at: new Date().toISOString(),
     }).eq('id', authRow.service_order_id).is('confirmation_email_sent_at', null)
-      .select(`order_number, service_type, service_interval, estimated_amount, notes, service_details, dock, slip_number, requires_review,
+      .select(`order_number, service_type, service_interval, estimate_mode, estimated_amount, estimated_min_amount, estimated_max_amount, notes, service_details, dock, slip_number, requires_review,
         boat:boat_id ( name, length, make, model ), marina:marina_id ( name ), customer:customer_id ( name, email, phone )`)
       .maybeSingle()
     if (orderUpdateErr) throw new Error(`service_orders email-claim update failed: ${orderUpdateErr.message}`)
@@ -343,9 +348,12 @@ async function sendOrderEmails(order: any, cardBrand: string | null, cardLast4: 
   const isRecurring = order.service_interval !== 'one-time' && order.service_interval !== 'one_time'
   const fromAddress = Deno.env.get('EMAIL_FROM_ADDRESS') || 'Brian Cline <diving@briancline.co>'
   const adminEmail = Deno.env.get('ADMIN_EMAILS') || 'standardhuman@gmail.com'
+  const checkoutQuote = readStoredCheckoutQuote(order)
+  if (!checkoutQuote) throw new Error(`Order ${order.order_number} has no valid stored checkout quote`)
+  const formattedQuote = formatCheckoutQuoteForEmail(checkoutQuote)
 
   const customerHtml = generateOrderConfirmationEmail(
-    order.order_number, customer.name, order.service_type, Number(order.estimated_amount) || 0,
+    order.order_number, customer.name, order.service_type, formattedQuote,
     isRecurring, order.service_interval, cardBrand, cardLast4,
   )
   const customerResult = await resend.emails.send({
@@ -356,7 +364,7 @@ async function sendOrderEmails(order: any, cardBrand: string | null, cardLast4: 
 
   const adminHtml = generateAdminNotificationEmail(
     order.order_number, customer.name, customer.email, customer.phone || '',
-    order.service_type, Number(order.estimated_amount) || 0,
+    order.service_type, formattedQuote,
     boat?.name || 'N/A', marina?.name || 'N/A', order.dock || 'N/A', order.slip_number || 'N/A',
     isRecurring, order.notes || '', order.service_interval,
     parseInt(boat?.length) || 0, boat?.make || '', boat?.model || '',
@@ -385,7 +393,7 @@ function sectionHeading(text: string): string {
 
 function generateAdminNotificationEmail(
   orderNumber: string, customerName: string, customerEmail: string, customerPhone: string,
-  serviceType: string, estimatedAmount: number, boatName: string, marinaName: string,
+  serviceType: string, formattedQuote: FormattedCheckoutQuote, boatName: string, marinaName: string,
   dock: string, slipNumber: string, isRecurring: boolean, customerNotes: string,
   serviceInterval: string, boatLength: number, boatMake: string, boatModel: string,
   boatType: string, hullType: string,
@@ -394,20 +402,22 @@ function generateAdminNotificationEmail(
 ): string {
   const reviewBanner = requiresReview
     ? `<div style="margin-bottom:20px;padding:14px 16px;background-color:#fef2f2;border-left:3px solid #ef4444;border-radius:4px;"><p style="margin:0;font-size:14px;color:#991b1b;"><strong>⚠️ Manual review required:</strong> This order's marina is not on the standard whitelist — verify before scheduling. The recurring service schedule has NOT been created.</p></div>` : ''
-  const body = `${reviewBanner}<div style="padding:16px;background:linear-gradient(135deg,#1565c0,#0097a7);border-radius:10px;margin-bottom:24px;"><p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#b2ebf2;">New Order</p><p style="margin:0;font-size:24px;font-weight:700;color:#ffffff;">${orderNumber}</p></div>${sectionHeading('Order Details')}<table style="width:100%;border-collapse:collapse;">${detailRow('Service', serviceType, true)}${detailRow('Estimated Amount', '<span style="font-weight:600;color:#059669;">$' + estimatedAmount.toFixed(2) + '</span>')}${detailRow('Payment', '💳 Card saved — charge after service', true)}${detailRow('Frequency', isRecurring ? formatServiceInterval(serviceInterval) : 'One-time')}</table>${sectionHeading('Customer')}<table style="width:100%;border-collapse:collapse;">${detailRow('Name', customerName, true)}${detailRow('Email', '<a href="mailto:' + customerEmail + '" style="color:#1565c0;text-decoration:none;">' + customerEmail + '</a>')}${detailRow('Phone', '<a href="tel:' + customerPhone + '" style="color:#1565c0;text-decoration:none;">' + customerPhone + '</a>', true)}</table>${sectionHeading('Boat & Location')}<table style="width:100%;border-collapse:collapse;">${detailRow('Boat', boatName || 'N/A', true)}${detailRow('Length', boatLength ? boatLength + ' ft' : 'N/A')}${detailRow('Make / Model', (boatMake || boatModel) ? [boatMake, boatModel].filter(Boolean).join(' ') : 'N/A', true)}${detailRow('Type / Hull', [boatType, hullType].filter(Boolean).join(' / ') || 'N/A')}${detailRow('Marina', marinaName || 'N/A', true)}${detailRow('Dock / Slip', [dock, slipNumber].filter(Boolean).join(' / ') || 'N/A')}</table>${serviceBreakdown?.items?.length ? `${sectionHeading('Price Breakdown')}<table style="width:100%;border-collapse:collapse;">${serviceBreakdown.items.map((item, index) => detailRow(item.description, '$' + item.amount.toFixed(2), index % 2 === 0)).join('')}<tr style="background-color:#1565c0;"><td style="padding:12px 14px;font-size:14px;font-weight:600;color:#ffffff;">Total</td><td style="padding:12px 14px;font-size:14px;font-weight:600;color:#ffffff;">$${serviceBreakdown.total.toFixed(2)}</td></tr></table>` : ''}${customerNotes ? `${sectionHeading('Customer Notes')}<div style="padding:14px 16px;background-color:#f8fafc;border-left:3px solid #0097a7;border-radius:4px;"><p style="margin:0;font-size:14px;white-space:pre-wrap;color:#334155;">${customerNotes}</p></div>` : ''}<div style="margin-top:24px;padding:14px 16px;background-color:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;"><p style="margin:0;font-size:14px;color:#92400e;"><strong>Action Required:</strong> Review this order and schedule the service.</p></div>`
+  const body = `${reviewBanner}<div style="padding:16px;background:linear-gradient(135deg,#1565c0,#0097a7);border-radius:10px;margin-bottom:24px;"><p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#b2ebf2;">New Order</p><p style="margin:0;font-size:24px;font-weight:700;color:#ffffff;">${orderNumber}</p></div>${sectionHeading('Order Details')}<table style="width:100%;border-collapse:collapse;">${detailRow('Service', serviceType, true)}${detailRow(formattedQuote.label, '<span style="font-weight:600;color:#059669;">' + formattedQuote.value + '</span>')}${detailRow('Payment', '💳 Card saved — charge after service', true)}${detailRow('Frequency', isRecurring ? formatServiceInterval(serviceInterval) : 'One-time')}</table>${sectionHeading('Customer')}<table style="width:100%;border-collapse:collapse;">${detailRow('Name', customerName, true)}${detailRow('Email', '<a href="mailto:' + customerEmail + '" style="color:#1565c0;text-decoration:none;">' + customerEmail + '</a>')}${detailRow('Phone', '<a href="tel:' + customerPhone + '" style="color:#1565c0;text-decoration:none;">' + customerPhone + '</a>', true)}</table>${sectionHeading('Boat & Location')}<table style="width:100%;border-collapse:collapse;">${detailRow('Boat', boatName || 'N/A', true)}${detailRow('Length', boatLength ? boatLength + ' ft' : 'N/A')}${detailRow('Make / Model', (boatMake || boatModel) ? [boatMake, boatModel].filter(Boolean).join(' ') : 'N/A', true)}${detailRow('Type / Hull', [boatType, hullType].filter(Boolean).join(' / ') || 'N/A')}${detailRow('Marina', marinaName || 'N/A', true)}${detailRow('Dock / Slip', [dock, slipNumber].filter(Boolean).join(' / ') || 'N/A')}</table>${serviceBreakdown?.items?.length ? `${sectionHeading('Price Breakdown')}<table style="width:100%;border-collapse:collapse;">${serviceBreakdown.items.map((item, index) => detailRow(item.description, '$' + item.amount.toFixed(2), index % 2 === 0)).join('')}<tr style="background-color:#1565c0;"><td style="padding:12px 14px;font-size:14px;font-weight:600;color:#ffffff;">Total</td><td style="padding:12px 14px;font-size:14px;font-weight:600;color:#ffffff;">$${serviceBreakdown.total.toFixed(2)}</td></tr></table>` : ''}${customerNotes ? `${sectionHeading('Customer Notes')}<div style="padding:14px 16px;background-color:#f8fafc;border-left:3px solid #0097a7;border-radius:4px;"><p style="margin:0;font-size:14px;white-space:pre-wrap;color:#334155;">${customerNotes}</p></div>` : ''}<div style="margin-top:24px;padding:14px 16px;background-color:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;"><p style="margin:0;font-size:14px;color:#92400e;"><strong>Action Required:</strong> Review this order and schedule the service.</p></div>`
   return emailLayout(`New Order — ${orderNumber}`, body)
 }
 
 function generateOrderConfirmationEmail(
-  orderNumber: string, customerName: string, serviceType: string, estimatedAmount: number,
+  orderNumber: string, customerName: string, serviceType: string, formattedQuote: FormattedCheckoutQuote,
   isRecurring: boolean, serviceInterval: string, cardBrand: string | null, cardLast4: string | null,
 ): string {
   const cardLine = (cardBrand && cardLast4)
     ? `<p style="margin:6px 0 0;font-size:12px;color:#0e7490;">Card on file: ${cardBrand} ····${cardLast4}</p>` : ''
   const paymentNote = isRecurring
     ? `Your card is securely saved and will be charged after each service completion (${formatServiceInterval(serviceInterval)}).`
-    : `Your card is securely saved and will be charged $${estimatedAmount.toFixed(2)} after service completion.`
-  const body = `<div style="text-align:center;margin-bottom:28px;"><div style="display:inline-block;width:56px;height:56px;background-color:#ecfdf5;border-radius:50%;line-height:56px;font-size:28px;margin-bottom:12px;">✅</div><h1 style="margin:0;font-size:24px;font-weight:700;color:#1e293b;">Order Confirmed</h1></div><p style="font-size:16px;color:#334155;margin:0 0 20px;">Hi ${customerName},</p><p style="font-size:15px;color:#475569;margin:0 0 24px;">Thank you for your order. Here are the details:</p><table style="width:100%;border-collapse:collapse;margin-bottom:24px;">${detailRow('Order Number', '<span style="font-family:monospace;font-weight:600;">' + orderNumber + '</span>', true)}${detailRow('Service', serviceType)}${detailRow('Frequency', formatServiceInterval(serviceInterval), true)}${detailRow('Estimated Cost', '$' + estimatedAmount.toFixed(2))}</table><div style="padding:14px 16px;background:linear-gradient(135deg,#e0f2fe,#e0f7fa);border-left:3px solid #0097a7;border-radius:4px;margin-bottom:24px;"><p style="margin:0;font-size:14px;color:#0e7490;"><strong>Payment Method Saved</strong></p><p style="margin:6px 0 0;font-size:13px;color:#155e75;">${paymentNote}</p>${cardLine}</div><p style="font-size:15px;color:#334155;margin:0 0 6px;font-weight:600;">What's Next?</p><p style="font-size:14px;color:#475569;margin:0 0 24px;">I'll be in touch to schedule your first service. You'll receive a notification once it's complete, along with underwater photos and a service report.</p><p style="font-size:14px;color:#64748b;margin:0;">Questions? Reach me at <a href="mailto:diving@briancline.co" style="color:#1565c0;text-decoration:none;">diving@briancline.co</a></p>`
+    : formattedQuote.label === 'Estimated Range'
+      ? `Your card is securely saved and will be charged after service completion based on the actual conditions documented in your service report.`
+      : `Your card is securely saved and will be charged ${formattedQuote.value} after service completion.`
+  const body = `<div style="text-align:center;margin-bottom:28px;"><div style="display:inline-block;width:56px;height:56px;background-color:#ecfdf5;border-radius:50%;line-height:56px;font-size:28px;margin-bottom:12px;">✅</div><h1 style="margin:0;font-size:24px;font-weight:700;color:#1e293b;">Order Confirmed</h1></div><p style="font-size:16px;color:#334155;margin:0 0 20px;">Hi ${customerName},</p><p style="font-size:15px;color:#475569;margin:0 0 24px;">Thank you for your order. Here are the details:</p><table style="width:100%;border-collapse:collapse;margin-bottom:24px;">${detailRow('Order Number', '<span style="font-family:monospace;font-weight:600;">' + orderNumber + '</span>', true)}${detailRow('Service', serviceType)}${detailRow('Frequency', formatServiceInterval(serviceInterval), true)}${detailRow(formattedQuote.label, formattedQuote.value)}</table><div style="padding:14px 16px;background:linear-gradient(135deg,#e0f2fe,#e0f7fa);border-left:3px solid #0097a7;border-radius:4px;margin-bottom:24px;"><p style="margin:0;font-size:14px;color:#0e7490;"><strong>Payment Method Saved</strong></p><p style="margin:6px 0 0;font-size:13px;color:#155e75;">${paymentNote}</p>${cardLine}</div><p style="font-size:15px;color:#334155;margin:0 0 6px;font-weight:600;">What's Next?</p><p style="font-size:14px;color:#475569;margin:0 0 24px;">I'll be in touch to schedule your first service. You'll receive a notification once it's complete, along with underwater photos and a service report.</p><p style="font-size:14px;color:#64748b;margin:0;">Questions? Reach me at <a href="mailto:diving@briancline.co" style="color:#1565c0;text-decoration:none;">diving@briancline.co</a></p>`
   return emailLayout('Order Confirmation', body)
 }
 
