@@ -18,6 +18,13 @@ import {
   quotesEqual,
   type CheckoutQuote,
 } from '../_shared/checkout-quote.ts'
+import {
+  parsePromoClaimRow,
+  promoErrorMessage,
+  promoNotApplicableMessage,
+  releaseReservedPromoClaim,
+  type PromoApplied,
+} from '../_shared/service-promo.ts'
 
 const stripeMode = Deno.env.get('STRIPE_MODE') || 'test'
 const stripeSecretKey = stripeMode === 'live'
@@ -141,8 +148,9 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  let promoRedemptionId: string | null = null
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
     const payload = await req.json()
     const formData = payload.formData as LeadFormData & Record<string, any>
 
@@ -424,51 +432,40 @@ serve(async (req) => {
     // early above and never re-burns the once-per-customer redemption) and before the
     // order is constructed, so a successful claim can be stamped onto orderData below.
     const promoCode = typeof formData.promoCode === 'string' ? formData.promoCode.trim().slice(0, 64) : ''
-    let promoRedemptionId: string | null = null
-    let promoApplied: { code: string; percentApplied: number } | null = null
+    let promoApplied: PromoApplied | null = null
     if (promoCode) {
-      // Current promo offers are recurring-only per Brian 2026-07-13 (WELCOME26 =
-      // 50% off the second cleaning; the one-time 25% variant was dropped). Gate
-      // before the RPC so a one-time order can never reserve a redemption.
-      if (formData.serviceInterval === 'one-time') {
+      const isRecurringPromoOrder = formData.serviceInterval !== 'one-time'
+      // Preserve WELCOME26's currently shipped recurring-only rule. Serialized
+      // marina vouchers deliberately apply to one-time and recurring orders.
+      const notApplicableMessage = promoNotApplicableMessage(promoCode, isRecurringPromoOrder)
+      if (notApplicableMessage) {
         return new Response(JSON.stringify({
-          error: 'That promo code applies to recurring cleaning plans only.',
+          error: notApplicableMessage,
           promoError: 'promo_not_applicable',
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
       }
       const { data: promoData, error: promoRpcError } = await supabase.rpc('claim_service_promo', {
         p_code: promoCode,
         p_email: formData.customerEmail,
-        p_is_recurring: formData.serviceInterval !== 'one-time',
+        p_is_recurring: isRecurringPromoOrder,
       })
       if (promoRpcError) {
         return new Response(JSON.stringify({
-          error: 'We could not validate your promo code right now. Please remove the code and try again, or retry in a moment.',
+          error: promoErrorMessage('rpc_failure'),
           promoError: 'rpc_failure',
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 })
       }
       const promoRow = Array.isArray(promoData) ? promoData[0] : promoData
-      if (!promoRow) {
-        // Malformed/zero-row RPC response. Treat like a transport failure rather than
-        // silently falling through to a false "success" with no redemption stamped.
+      const parsedPromo = parsePromoClaimRow(promoRow, promoCode)
+      if (!parsedPromo.ok) {
+        const status = parsedPromo.errorCode === 'rpc_failure' ? 500 : 400
         return new Response(JSON.stringify({
-          error: 'We could not validate your promo code right now. Please remove the code and try again, or retry in a moment.',
-          promoError: 'rpc_failure',
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 })
+          error: promoErrorMessage(parsedPromo.errorCode),
+          promoError: parsedPromo.errorCode,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status })
       }
-      if (promoRow?.error_code) {
-        const promoErrorMessages: Record<string, string> = {
-          invalid_code: "That promo code isn't valid.",
-          already_used: 'That promo code has already been used.',
-          expired: 'That promo code has expired.',
-        }
-        return new Response(JSON.stringify({
-          error: promoErrorMessages[promoRow.error_code] || 'That promo code could not be applied.',
-          promoError: promoRow.error_code,
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
-      }
-      promoRedemptionId = promoRow?.redemption_id ?? null
-      promoApplied = { code: promoCode.toUpperCase(), percentApplied: promoRow?.percent_applied }
+      promoRedemptionId = parsedPromo.redemptionId
+      promoApplied = parsedPromo.applied
     }
 
     const orderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`
@@ -598,6 +595,7 @@ serve(async (req) => {
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
   } catch (error: any) {
     console.error('Error:', error)
+    await releaseReservedPromoClaim(supabase, promoRedemptionId)
     return new Response(JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
   }
