@@ -48,7 +48,6 @@ describe('voucher checkout copy', () => {
     expect(promoConfirmation({ code: 'BM-3U3YP', discountType: 'amount', amountAppliedCents: 0 })).toBeNull();
   });
 });
-
 describe('DivingOrder wiring', () => {
   it('retains URL prefill and uses the pure submission and confirmation contracts', () => {
     expect(source).toContain('searchParams.get("promo")');
@@ -57,4 +56,3 @@ describe('DivingOrder wiring', () => {
     expect(source).toContain('setPromoError(null)');
   });
 });
-

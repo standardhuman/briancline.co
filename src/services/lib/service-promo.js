@@ -3,7 +3,6 @@ const MARINA_VOUCHER_PATTERN = /^BM-[A-HJ-KM-NP-Z2-9]{5}$/;
 function normalizePromoCode(code) {
   return typeof code === 'string' ? code.trim().toUpperCase() : '';
 }
-
 function formatDollars(cents) {
   const dollars = cents / 100;
   return Number.isInteger(dollars) ? `$${dollars.toFixed(0)}` : `$${dollars.toFixed(2)}`;
@@ -52,4 +51,3 @@ export function promoConfirmation(applied) {
   }
   return null;
 }
-
