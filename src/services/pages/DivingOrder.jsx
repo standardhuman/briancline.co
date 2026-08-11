@@ -11,6 +11,7 @@ import { cn, formatCurrency } from "../lib/utils";
 import { SERVICES, conditionPriceRange, estimateScale, PAINT_AGE_OPTIONS, LAST_CLEANED_OPTIONS } from "../lib/diving-calculator";
 import { deriveCheckoutQuote } from "../lib/checkout-quote";
 import { resolveScaleMarkerPrice } from "../lib/order-marker";
+import { promoCodeForSubmission, promoConfirmation, promoPreviewFor } from "../lib/service-promo";
 import PageMeta from "../components/PageMeta";
 import ConditionsPricing from "../components/ConditionsPricing";
 import EstimateScale from "../components/EstimateScale";
@@ -430,16 +431,7 @@ function OrderForm({ searchParams, navigate }) {
   // it must never alter estimateAmount or any displayed cost.
   // WELCOME26 is recurring-only ($75 off the first cleaning) — no one-time variant.
   const promoIsWelcome26NotApplicable = form.promoCode.trim().toUpperCase() === "WELCOME26" && !isRecurring;
-  const promoPreview = (() => {
-    const code = form.promoCode.trim();
-    if (!code) return null;
-    if (code.toUpperCase() === "WELCOME26") {
-      return isRecurring
-        ? "WELCOME26 — $75 off your first cleaning"
-        : "WELCOME26 applies to recurring cleaning plans only.";
-    }
-    return "Code will be validated at checkout.";
-  })();
+  const promoPreview = promoPreviewFor(form.promoCode, isRecurring);
 
   // Typed-name match is intentionally case- and whitespace-insensitive — chargeback
   // defense doesn't need exact casing, just evidence the customer actively typed
@@ -544,9 +536,9 @@ function OrderForm({ searchParams, navigate }) {
         // Empty string when absent (old links / organic visitors) — the edge fn
         // treats that as "no id" and falls back to the name/email heuristic.
         leadBoatId: initialLeadBoatId,
-        // Promo offers are recurring-only — a one-time order must never attempt a
-        // claim (the preview already tells the customer it doesn't apply here).
-        promoCode: form.promoCode.trim() && isRecurring ? form.promoCode.trim().toUpperCase() : "",
+        // WELCOME26 remains recurring-only; serialized vouchers and unknown codes
+        // still reach server-side validation for one-time cleaning orders.
+        promoCode: promoCodeForSubmission(form.promoCode, isRecurring),
         websiteUrl: form.websiteUrl, // honeypot
         turnstileToken,
         serviceDetails: {
@@ -644,6 +636,10 @@ function OrderForm({ searchParams, navigate }) {
     }
   };
 
+  const successPromoConfirmation = success?.promoApplied
+    ? promoConfirmation(success.promoApplied)
+    : null;
+
   // ── Success State ──
   if (success) {
     return (
@@ -658,12 +654,9 @@ function OrderForm({ searchParams, navigate }) {
           <p className="text-lg font-medium mb-2">
             Order Number: <span className="font-mono bg-gray-100 px-3 py-1 rounded">{success.orderNumber}</span>
           </p>
-          {success.promoApplied && (
+          {successPromoConfirmation && (
             <p className="text-sm font-medium text-[#0073a8] mb-2">
-              Promo applied: {success.promoApplied.code} —{" "}
-              {success.promoApplied.percentApplied === 50
-                ? "$75 off your first cleaning"
-                : `${success.promoApplied.percentApplied}% off`}
+              Promo applied: {successPromoConfirmation}
             </p>
           )}
           <p className="text-gray-500 text-sm mb-8">
