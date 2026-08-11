@@ -22,6 +22,7 @@ import {
   parsePromoClaimRow,
   promoErrorMessage,
   promoNotApplicableMessage,
+  releaseReservedPromoClaim,
   type PromoApplied,
 } from '../_shared/service-promo.ts'
 
@@ -147,8 +148,9 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  let promoRedemptionId: string | null = null
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
     const payload = await req.json()
     const formData = payload.formData as LeadFormData & Record<string, any>
 
@@ -430,7 +432,6 @@ serve(async (req) => {
     // early above and never re-burns the once-per-customer redemption) and before the
     // order is constructed, so a successful claim can be stamped onto orderData below.
     const promoCode = typeof formData.promoCode === 'string' ? formData.promoCode.trim().slice(0, 64) : ''
-    let promoRedemptionId: string | null = null
     let promoApplied: PromoApplied | null = null
     if (promoCode) {
       const isRecurringPromoOrder = formData.serviceInterval !== 'one-time'
@@ -594,6 +595,7 @@ serve(async (req) => {
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
   } catch (error: any) {
     console.error('Error:', error)
+    await releaseReservedPromoClaim(supabase, promoRedemptionId)
     return new Response(JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
   }

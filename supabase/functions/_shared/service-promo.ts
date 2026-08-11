@@ -32,6 +32,35 @@ export function promoNotApplicableMessage(code: string, isRecurring: boolean): s
   return null
 }
 
+/** Release only an unconsumed reservation when checkout fails after a
+ * successful claim. This is deliberately best-effort: the original checkout
+ * error remains the customer-facing result, while a cleanup failure is logged
+ * for operations rather than masking it. */
+export async function releaseReservedPromoClaim(
+  supabase: any,
+  redemptionId: string | null,
+): Promise<boolean> {
+  if (!redemptionId) return false
+  try {
+    const { error } = await supabase
+      .from('service_promo_redemptions')
+      .update({ status: 'released' })
+      .eq('id', redemptionId)
+      .eq('status', 'reserved')
+    if (error) {
+      console.error('[create-payment-intent] Promo reservation release failed:', error.message)
+      return false
+    }
+    return true
+  } catch (error) {
+    console.error(
+      '[create-payment-intent] Promo reservation release threw:',
+      error instanceof Error ? error.message : String(error),
+    )
+    return false
+  }
+}
+
 export function parsePromoClaimRow(row: unknown, rawCode: string): ParsedPromoClaim {
   if (!row || typeof row !== 'object') return { ok: false, errorCode: 'rpc_failure' }
   const value = row as Record<string, unknown>
@@ -73,4 +102,3 @@ export function parsePromoClaimRow(row: unknown, rawCode: string): ParsedPromoCl
     },
   }
 }
-

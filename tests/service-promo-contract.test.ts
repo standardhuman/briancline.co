@@ -5,6 +5,7 @@ import {
   parsePromoClaimRow,
   promoErrorMessage,
   promoNotApplicableMessage,
+  releaseReservedPromoClaim,
 } from '../supabase/functions/_shared/service-promo';
 
 const functionSource = readFileSync(
@@ -86,5 +87,38 @@ describe('checkout preservation boundaries', () => {
     expect(functionSource).toContain('stripe.setupIntents.create');
     expect(functionSource).not.toContain('stripe.paymentIntents.create');
   });
-});
 
+  it('best-effort releases a reservation after a post-claim checkout failure', async () => {
+    const calls: unknown[][] = [];
+    const supabase = {
+      from(table: string) {
+        calls.push(['from', table]);
+        return {
+          update(values: unknown) {
+            calls.push(['update', values]);
+            return {
+              eq(column: string, value: unknown) {
+                calls.push(['eq', column, value]);
+                return {
+                  async eq(secondColumn: string, secondValue: unknown) {
+                    calls.push(['eq', secondColumn, secondValue]);
+                    return { error: null };
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+    };
+
+    await expect(releaseReservedPromoClaim(supabase, 'red-amount')).resolves.toBe(true);
+    expect(calls).toEqual([
+      ['from', 'service_promo_redemptions'],
+      ['update', { status: 'released' }],
+      ['eq', 'id', 'red-amount'],
+      ['eq', 'status', 'reserved'],
+    ]);
+    expect(functionSource).toContain('await releaseReservedPromoClaim(supabase, promoRedemptionId)');
+  });
+});
