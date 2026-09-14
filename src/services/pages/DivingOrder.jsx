@@ -429,9 +429,9 @@ function OrderForm({ searchParams, navigate }) {
   // Optimistic promo preview — the real discount is validated + applied server-side
   // by the billing engine at checkout. This line is a promise, not the price math;
   // it must never alter estimateAmount or any displayed cost.
-  // WELCOME26 is recurring-only ($75 off the first cleaning) — no one-time variant.
-  const promoIsWelcome26NotApplicable = form.promoCode.trim().toUpperCase() === "WELCOME26" && !isRecurring;
-  const promoPreview = promoPreviewFor(form.promoCode, isRecurring);
+  // WELCOME26 is a flat $75 off the first cleaning on any plan, one-time or
+  // recurring, so the preview no longer depends on the selected frequency.
+  const promoPreview = promoPreviewFor(form.promoCode);
 
   // Typed-name match is intentionally case- and whitespace-insensitive — chargeback
   // defense doesn't need exact casing, just evidence the customer actively typed
@@ -536,9 +536,9 @@ function OrderForm({ searchParams, navigate }) {
         // Empty string when absent (old links / organic visitors) — the edge fn
         // treats that as "no id" and falls back to the name/email heuristic.
         leadBoatId: initialLeadBoatId,
-        // WELCOME26 remains recurring-only; serialized vouchers and unknown codes
-        // still reach server-side validation for one-time cleaning orders.
-        promoCode: promoCodeForSubmission(form.promoCode, isRecurring),
+        // Every code — WELCOME26, serialized vouchers, unknown codes — reaches
+        // server-side validation on both one-time and recurring orders.
+        promoCode: promoCodeForSubmission(form.promoCode),
         websiteUrl: form.websiteUrl, // honeypot
         turnstileToken,
         serviceDetails: {
@@ -996,9 +996,7 @@ function OrderForm({ searchParams, navigate }) {
                 <p className="mt-1 text-xs text-red-600">{promoError}</p>
               ) : (
                 promoPreview && (
-                  <p className={cn("mt-1 text-xs", promoIsWelcome26NotApplicable ? "text-gray-500" : "text-[#0073a8]")}>
-                    {promoPreview}
-                  </p>
+                  <p className="mt-1 text-xs text-[#0073a8]">{promoPreview}</p>
                 )
               )}
             </Field>

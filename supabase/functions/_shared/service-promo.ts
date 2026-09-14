@@ -23,14 +23,11 @@ export function promoErrorMessage(errorCode: string): string {
   return PROMO_ERROR_MESSAGES[errorCode] ?? 'That promo code could not be applied.'
 }
 
-/** Preserve the currently shipped WELCOME26 rule without imposing it on new
- * serialized vouchers, which are valid for one-time and recurring cleanings. */
-export function promoNotApplicableMessage(code: string, isRecurring: boolean): string | null {
-  if (code.trim().toUpperCase() === 'WELCOME26' && !isRecurring) {
-    return 'That promo code applies to recurring cleaning plans only.'
-  }
-  return null
-}
+/* No code is gated to a plan type in this function any more. WELCOME26 is a flat
+ * $75 off the first cleaning on one-time and recurring orders alike, and
+ * serialized marina vouchers always were. Plan applicability, like every other
+ * promo term, is owned by the DB config that claim_service_promo reads — it
+ * still receives p_is_recurring and can refuse a claim with a typed error code. */
 
 /** Release only an unconsumed reservation when checkout fails after a
  * successful claim. This is deliberately best-effort: the original checkout

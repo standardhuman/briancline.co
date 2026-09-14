@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import {
   parsePromoClaimRow,
   promoErrorMessage,
-  promoNotApplicableMessage,
   releaseReservedPromoClaim,
 } from '../supabase/functions/_shared/service-promo';
 
@@ -14,16 +13,16 @@ const functionSource = readFileSync(
 );
 
 describe('service promo claim response', () => {
-  it('accepts the deployed percent-only RPC shape without changing WELCOME26 terms', () => {
+  it('accepts the legacy percent-only RPC shape for codes still configured that way', () => {
     expect(parsePromoClaimRow({
       redemption_id: 'red-percent',
       percent_applied: 50,
       error_code: null,
-    }, ' welcome26 ')).toEqual({
+    }, ' save50 ')).toEqual({
       ok: true,
       redemptionId: 'red-percent',
       applied: {
-        code: 'WELCOME26',
+        code: 'SAVE50',
         discountType: 'percent',
         percentApplied: 50,
         amountAppliedCents: null,
@@ -73,10 +72,12 @@ describe('service promo claim response', () => {
 });
 
 describe('checkout preservation boundaries', () => {
-  it('keeps WELCOME26 recurring-only but permits other codes on one-time cleaning orders', () => {
-    expect(promoNotApplicableMessage('WELCOME26', false)).toBe('That promo code applies to recurring cleaning plans only.');
-    expect(promoNotApplicableMessage('welcome26', true)).toBeNull();
-    expect(promoNotApplicableMessage('BM-3U3YP', false)).toBeNull();
+  it('gates no promo code to a plan type client-side and leaves applicability to the RPC', () => {
+    expect(functionSource).not.toContain('promoNotApplicableMessage');
+    expect(functionSource).not.toContain('recurring cleaning plans only');
+    expect(functionSource).not.toContain('promo_not_applicable');
+    // The RPC still receives the plan shape, so DB config owns any restriction.
+    expect(functionSource).toContain('p_is_recurring: isRecurringPromoOrder');
   });
 
   it('retains v28 provider, quote, idempotency, authorization, and SetupIntent behavior', () => {
