@@ -8,13 +8,13 @@ function formatDollars(cents) {
   return Number.isInteger(dollars) ? `$${dollars.toFixed(0)}` : `$${dollars.toFixed(2)}`;
 }
 
-export function promoPreviewFor(rawCode, isRecurring) {
+export function promoPreviewFor(rawCode) {
   const code = normalizePromoCode(rawCode);
   if (!code) return null;
+  // WELCOME26 is a flat $75 off the first cleaning on every plan — one-time and
+  // recurring alike. No plan-dependent copy.
   if (code === 'WELCOME26') {
-    return isRecurring
-      ? 'WELCOME26 — $75 off your first cleaning'
-      : 'WELCOME26 applies to recurring cleaning plans only.';
+    return 'WELCOME26 — $75 off your first cleaning';
   }
   if (MARINA_VOUCHER_PATTERN.test(code)) {
     return `${code} — $75 off your first hull cleaning`;
@@ -22,10 +22,8 @@ export function promoPreviewFor(rawCode, isRecurring) {
   return 'Code will be validated at checkout.';
 }
 
-export function promoCodeForSubmission(rawCode, isRecurring) {
-  const code = normalizePromoCode(rawCode);
-  if (code === 'WELCOME26' && !isRecurring) return '';
-  return code;
+export function promoCodeForSubmission(rawCode) {
+  return normalizePromoCode(rawCode);
 }
 
 export function promoConfirmation(applied) {
@@ -44,9 +42,6 @@ export function promoConfirmation(applied) {
     && Number.isInteger(applied.percentApplied)
     && applied.percentApplied > 0
   ) {
-    if (code === 'WELCOME26' && applied.percentApplied === 50) {
-      return 'WELCOME26 — $75 off your first cleaning';
-    }
     return `${code} — ${applied.percentApplied}% off`;
   }
   return null;

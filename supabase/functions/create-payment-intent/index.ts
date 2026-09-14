@@ -21,7 +21,6 @@ import {
 import {
   parsePromoClaimRow,
   promoErrorMessage,
-  promoNotApplicableMessage,
   releaseReservedPromoClaim,
   type PromoApplied,
 } from '../_shared/service-promo.ts'
@@ -434,16 +433,11 @@ serve(async (req) => {
     const promoCode = typeof formData.promoCode === 'string' ? formData.promoCode.trim().slice(0, 64) : ''
     let promoApplied: PromoApplied | null = null
     if (promoCode) {
+      // No code is gated to a plan type here: WELCOME26 is a flat $75 off the
+      // first cleaning on one-time and recurring orders alike, and serialized
+      // marina vouchers always applied to both. p_is_recurring is still passed
+      // so the DB-side config owns any plan restriction a future code needs.
       const isRecurringPromoOrder = formData.serviceInterval !== 'one-time'
-      // Preserve WELCOME26's currently shipped recurring-only rule. Serialized
-      // marina vouchers deliberately apply to one-time and recurring orders.
-      const notApplicableMessage = promoNotApplicableMessage(promoCode, isRecurringPromoOrder)
-      if (notApplicableMessage) {
-        return new Response(JSON.stringify({
-          error: notApplicableMessage,
-          promoError: 'promo_not_applicable',
-        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
-      }
       const { data: promoData, error: promoRpcError } = await supabase.rpc('claim_service_promo', {
         p_code: promoCode,
         p_email: formData.customerEmail,
