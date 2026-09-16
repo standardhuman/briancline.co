@@ -495,6 +495,10 @@ serve(async (req) => {
 
     const serviceTypeMap: Record<string, string> = {
       'Cleaning & Anodes': formData.serviceInterval === 'one-time' ? 'onetime_cleaning' : 'recurring_cleaning',
+      // One-time and recurring both map to 'running_gear' — unlike cleaning this
+      // service does not split into onetime_/recurring_ variants; the Pro side
+      // owns the downstream scheduling semantics.
+      'Running Gear & Anodes': 'running_gear',
       'Underwater Inspection': 'underwater_inspection', 'Item Recovery': 'item_recovery',
       'Propeller Service': 'propeller_service', 'Anodes Only': 'anodes_only',
     }

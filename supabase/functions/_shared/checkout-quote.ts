@@ -26,6 +26,17 @@ const SHIPPED_STANDALONE_RATES = {
   propellerService: 349,
 }
 
+const CLEANING_SERVICE = 'Cleaning & Anodes'
+const RUNNING_GEAR_SERVICE = 'Running Gear & Anodes'
+
+// Running gear skips the broad hull, so it bills 70% of the comparable
+// full-clean charge. The reduction applies to the hull rate, its boat-type /
+// hull-type / propeller surcharges, and the growth surcharge. Anode
+// installation fees are pass-through labor and are NEVER discounted — they are
+// added after the multiplier, and they sit INSIDE the minimum-charge floor
+// exactly as they do for 'Cleaning & Anodes' and 'Anodes Only'.
+const RUNNING_GEAR_MULTIPLIER = 0.7
+
 const PAINT_AGES = ['<6mo', '6-12mo', '1-1.5yr', '1.5-2yr', '2+yr'] as const
 const LAST_CLEANED = ['<2', '2-4', '5-6', '7-8', '9-12', '13-24', '24+'] as const
 
@@ -157,14 +168,22 @@ export function calculateCanonicalQuote(formData: any, config: PricingConfig = {
     return exact(Math.max(minimum, anodes * configured(config, 'anode_installation_rate')))
   }
 
-  if (service !== 'Cleaning & Anodes' && service !== 'Underwater Inspection') return null
+  if (
+    service !== CLEANING_SERVICE &&
+    service !== RUNNING_GEAR_SERVICE &&
+    service !== 'Underwater Inspection'
+  ) return null
 
   const boatLength = boatLengthFor(formData)
   if (boatLength == null) return null
   if (!['sailboat', 'powerboat'].includes(details.boatType)) return null
   if (!['monohull', 'catamaran', 'trimaran'].includes(details.hullType)) return null
 
-  const isCleaning = service === 'Cleaning & Anodes'
+  // 'Running Gear & Anodes' prices off the same per-foot ladder, surcharges,
+  // growth matrix, cadences and anode fees as 'Cleaning & Anodes'; the only
+  // difference is the 0.70 reduction on the hull portion below.
+  const isRunningGear = service === RUNNING_GEAR_SERVICE
+  const isCleaning = service === CLEANING_SERVICE || isRunningGear
   const frequency = String(formData?.serviceInterval ?? '')
   if (isCleaning && !FREQUENCIES.has(frequency)) return null
   const isOneTime = !isCleaning || ['one_time', 'one-time', 'onetime'].includes(frequency)
@@ -184,7 +203,14 @@ export function calculateCanonicalQuote(formData: any, config: PricingConfig = {
   const anodes = parseInteger(details.anodeCount ?? 0, 0, 100)
   if (propellers == null || anodes == null) return null
   fixed += base * Math.max(0, propellers - 1) * 0.1
-  fixed += anodes * configured(config, 'anode_installation_rate')
+
+  // Anode installation is billed at full price on top of the (possibly
+  // discounted) hull portion, but still counts toward the minimum charge —
+  // the same composition 'Cleaning & Anodes' uses, where `fixed` carried the
+  // anode fees into the Math.max below.
+  const anodeFees = anodes * configured(config, 'anode_installation_rate')
+  const discount = isRunningGear ? RUNNING_GEAR_MULTIPLIER : 1
+  const compose = (growth: number) => discount * (fixed + base * growth) + anodeFees
 
   const paintAge = typeof details.paintAge === 'string' ? details.paintAge : ''
   const lastCleaned = typeof details.lastCleaned === 'string' ? details.lastCleaned : ''
@@ -195,13 +221,13 @@ export function calculateCanonicalQuote(formData: any, config: PricingConfig = {
   if (cleanedKnown && !LAST_CLEANED.includes(lastCleaned as typeof LAST_CLEANED[number])) return null
 
   if (!paintKnown || !cleanedKnown) {
-    const minCents = dollarsToCents(Math.max(minimum, fixed))
-    const maxCents = dollarsToCents(Math.max(minimum, fixed + base * 2))
+    const minCents = dollarsToCents(Math.max(minimum, compose(0)))
+    const maxCents = dollarsToCents(Math.max(minimum, compose(2)))
     if (minCents == null || maxCents == null) return null
     if (minCents === maxCents) return { mode: 'exact', amountCents: minCents }
     return { mode: 'range', minCents, maxCents }
   }
 
   const growth = foulingSurcharge(paintAge, lastCleaned)
-  return growth == null ? null : exact(Math.max(minimum, fixed + base * growth))
+  return growth == null ? null : exact(Math.max(minimum, compose(growth)))
 }

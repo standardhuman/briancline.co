@@ -329,6 +329,7 @@ async function sendOperatorSms(to: string, body: string): Promise<SendSmsOutcome
 function serviceLabel(serviceType: unknown): string {
   const labels: Record<string, string> = {
     'Cleaning & Anodes': 'Cleaning & Anodes',
+    'Running Gear & Anodes': 'Running Gear & Anodes',
     'Underwater Inspection': 'Underwater Inspection',
     'Item Recovery': 'Item Recovery',
     'Propeller Service': 'Propeller Service',

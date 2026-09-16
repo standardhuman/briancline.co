@@ -20,7 +20,11 @@ export function deriveCheckoutQuote(inputs = {}) {
   const { serviceKey } = inputs;
   if (!SERVICES[serviceKey]) return null;
 
-  if (serviceKey === 'cleaning') {
+  // Both cleaning-family services carry hull-condition uncertainty, so both go
+  // through the condition scale (exact when the matrix resolves, honest range
+  // when it doesn't). Running gear differs only by the 0.70 hull reduction,
+  // which estimateScale already applies.
+  if (serviceKey === 'cleaning' || serviceKey === 'running_gear') {
     const scale = estimateScale(inputs);
     if (!scale) return null;
 

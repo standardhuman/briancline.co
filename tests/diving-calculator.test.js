@@ -8,9 +8,9 @@ import { calculateEstimate, lookupFouling, RATES, SERVICES, SERVICE_VISIBILITY }
 // ── Service definitions ──
 
 describe('Service Definitions', () => {
-  it('should have all 5 service types defined', () => {
+  it('should have all 6 service types defined', () => {
     expect(Object.keys(SERVICES)).toEqual([
-      'cleaning', 'underwater_inspection', 'item_recovery', 'propeller_service', 'anodes_only'
+      'cleaning', 'running_gear', 'underwater_inspection', 'item_recovery', 'propeller_service', 'anodes_only'
     ]);
   });
 
