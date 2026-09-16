@@ -5,6 +5,77 @@
 import { describe, it, expect } from 'vitest';
 import { calculateEstimate, lookupFouling, RATES, SERVICES, SERVICE_VISIBILITY } from '../src/services/lib/diving-calculator.js';
 
+// ── Itemization invariant ──
+//
+// The order-confirmation email renders `service_details.breakdown.items` as a
+// table of rows above a printed Total. Nothing in this repo writes that field
+// today, so the section is dormant — but the moment anything does, rows that
+// don't add up to the total are visible to the customer. Running gear is the
+// first service whose breakdown carries a NEGATIVE line (the 30% reduction),
+// which is exactly the shape that broke the sibling Pro receipt: a stored
+// full-price hull plus a re-added reduction rendered "$200.00 hull / -$97.20
+// reduction / TOTAL $200.00". Here the reduction is derived in the same pass
+// that builds the rows, so the rows sum to the subtotal by construction. Pin it.
+describe('itemized rows sum to the subtotal', () => {
+  const GROWTH_CELLS = [
+    { paintAge: '<6mo', lastCleaned: '<2' },     // 0% growth
+    { paintAge: '1.5-2yr', lastCleaned: '7-8' }, // mid ladder
+    { paintAge: '2+yr', lastCleaned: '24+' },    // SEV, 200%
+  ];
+
+  for (const serviceKey of ['cleaning', 'running_gear']) {
+    it(`holds for ${serviceKey} across hulls, cadences, props, anodes and growth`, () => {
+      for (const boatLength of [12, 33, 40, 80]) {
+        for (const boatType of ['sailboat', 'powerboat']) {
+          for (const hullType of ['monohull', 'catamaran', 'trimaran']) {
+            for (const frequency of ['monthly', 'onetime']) {
+              for (const propellerCount of [1, 2, 3]) {
+                for (const anodeCount of [0, 4]) {
+                  for (const cell of GROWTH_CELLS) {
+                    const inputs = {
+                      serviceKey, boatLength, boatType, hullType, frequency,
+                      propellerCount, anodeCount, ...cell,
+                    };
+                    const estimate = calculateEstimate(inputs);
+                    const summed = estimate.items.reduce((acc, item) => acc + item.amount, 0);
+                    expect(summed, JSON.stringify(inputs)).toBeCloseTo(estimate.subtotal, 9);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  it('shows the running-gear hull lines at full price with the reduction as its own line', () => {
+    const estimate = calculateEstimate({
+      serviceKey: 'running_gear', boatLength: 40, boatType: 'powerboat', hullType: 'monohull',
+      frequency: 'onetime', propellerCount: 2, paintAge: '<6mo', lastCleaned: '<2', anodeCount: 4,
+    });
+    const labels = estimate.items.map((item) => item.label);
+    expect(labels).toEqual([
+      'Base rate', 'Powerboat surcharge', 'Additional propeller', 'Running gear only', 'Anode installation',
+    ]);
+    // Hull rows undiscounted, one negative reduction row, anodes at full price.
+    expect(estimate.items[0].amount).toBe(240);
+    expect(estimate.items[3].amount).toBeCloseTo(-97.2, 9);
+    expect(estimate.items[4].amount).toBe(60);
+    expect(estimate.subtotal).toBeCloseTo(286.8, 9);
+  });
+
+  it('emits no reduction line for cleaning', () => {
+    const estimate = calculateEstimate({
+      serviceKey: 'cleaning', boatLength: 40, boatType: 'powerboat', hullType: 'monohull',
+      frequency: 'onetime', propellerCount: 2, paintAge: '<6mo', lastCleaned: '<2', anodeCount: 4,
+    });
+    expect(estimate.items.some((item) => item.label === 'Running gear only')).toBe(false);
+    expect(estimate.items.every((item) => item.amount >= 0)).toBe(true);
+    expect(estimate.subtotal).toBe(384);
+  });
+});
+
 // ── Service definitions ──
 
 describe('Service Definitions', () => {
