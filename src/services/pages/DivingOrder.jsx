@@ -306,8 +306,16 @@ function OrderForm({ searchParams, navigate }) {
   const isPropellerService = serviceKey === "propeller_service";
   // "cleaning" is the recurring-capable service; check frequency to know if they chose one-time
   const isCleaningService = serviceKey === "cleaning" || serviceKey === "recurring_cleaning";
+  // Running gear cleans props, shafts, struts and trim tabs, services anodes and
+  // checks thru-hulls; it skips the broad hull and bills 70% of the comparable
+  // full-clean rate. Operationally it behaves exactly like cleaning — same
+  // cadences, same hull-condition inputs, same recurring authorization and ToS
+  // plumbing — so everything below keys off `isCleaningFamily`. Only the quote
+  // math differs, and that lives entirely in diving-calculator.
+  const isRunningGear = serviceKey === "running_gear";
+  const isCleaningFamily = isCleaningService || isRunningGear;
   const showBoatInfo = !isItemRecovery;
-  const showFrequency = isCleaningService;
+  const showFrequency = isCleaningFamily;
 
   // Form state
   const [form, setForm] = useState({
@@ -326,7 +334,7 @@ function OrderForm({ searchParams, navigate }) {
     billingCity: "",
     billingState: "",
     billingZip: "",
-    frequency: isCleaningService ? initialFrequency : "one_time",
+    frequency: isCleaningFamily ? initialFrequency : "one_time",
     // Editable hull-condition inputs (cleaning only). "" = "Not sure" (unknown),
     // prefilled from the capture link when the diver knew — see ConditionSelects.
     paintAge: initialPaintAge,
@@ -382,7 +390,7 @@ function OrderForm({ searchParams, navigate }) {
   // Recurring iff cleaning + a chosen, non-one-time frequency. Drives the wording
   // of the charge-authorization checkbox and whether we capture a recurring terms
   // version. An unselected frequency is neither recurring nor one-time.
-  const isRecurring = isCleaningService && !!form.frequency && form.frequency !== "one_time";
+  const isRecurring = isCleaningFamily && !!form.frequency && form.frequency !== "one_time";
 
   // Conditions-based price range for the explainer panel. Recomputed live from
   // the editable form fields (length, boat type, frequency) plus the customer's
@@ -408,12 +416,12 @@ function OrderForm({ searchParams, navigate }) {
     anodeCount: parseInt(initialAnodes, 10) || 0,
   };
   const checkoutQuote = deriveCheckoutQuote(conditionInputs);
-  const conditionRange = isCleaningService ? conditionPriceRange(conditionInputs) : null;
+  const conditionRange = isCleaningFamily ? conditionPriceRange(conditionInputs) : null;
   // Graphical min → worst-case scale (mirrors Pro's calculateEstimateRange). The
   // marker prefers the estimate we actually quoted (the URL param) so the page
   // shows the same number the customer was texted; it falls back to the local
   // matrix prediction as the customer narrows the conditions.
-  const estScale = isCleaningService ? estimateScale(conditionInputs) : null;
+  const estScale = isCleaningFamily ? estimateScale(conditionInputs) : null;
   // The quoted `estimate` param was computed for the URL's conditions. Keep it as
   // the marker ONLY while the selects still match those conditions AND a
   // prediction exists; once the customer edits the selects, the LIVE local
@@ -445,7 +453,7 @@ function OrderForm({ searchParams, navigate }) {
   const boatBerthOk = isItemRecovery || isBerkeleyMarina(form.marina);
 
   // A cleaning order must carry an explicit frequency — no silent default.
-  const frequencyChosen = !isCleaningService || !!form.frequency;
+  const frequencyChosen = !isCleaningFamily || !!form.frequency;
 
   const canSubmit =
     form.customerName &&
@@ -524,7 +532,7 @@ function OrderForm({ searchParams, navigate }) {
         billingAddress: form.billingAddress,
         billingCity: form.billingCity,
         billingState: form.billingState,
-        serviceInterval: isCleaningService ? form.frequency : "one-time",
+        serviceInterval: isCleaningFamily ? form.frequency : "one-time",
         customerNotes: form.notes,
         quote: checkoutQuote,
         // Rollout bridge: the old edge function still reads `estimate`. Exact
@@ -546,7 +554,7 @@ function OrderForm({ searchParams, navigate }) {
           boatLength: form.boatLength || initialLength,
           boatType: boatPropulsion,
           hullType: hullType,
-          frequency: isCleaningService ? form.frequency : "one-time",
+          frequency: isCleaningFamily ? form.frequency : "one-time",
           propellerCount: initialPropellers,
           // Submit the customer's live selections (empty string = "Not sure" /
           // unknown — same absent-condition convention as before).

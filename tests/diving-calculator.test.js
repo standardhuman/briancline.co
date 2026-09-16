@@ -5,12 +5,118 @@
 import { describe, it, expect } from 'vitest';
 import { calculateEstimate, lookupFouling, RATES, SERVICES, SERVICE_VISIBILITY } from '../src/services/lib/diving-calculator.js';
 
+// ── Itemization invariant ──
+//
+// The order-confirmation email renders `service_details.breakdown.items` as a
+// table of rows above a printed Total. Nothing in this repo writes that field
+// today, so the section is dormant — but the moment anything does, rows that
+// don't add up to the total are visible to the customer. Running gear is the
+// first service whose breakdown carries a NEGATIVE line (the 30% reduction),
+// which is exactly the shape that broke the sibling Pro receipt: a stored
+// full-price hull plus a re-added reduction rendered "$200.00 hull / -$97.20
+// reduction / TOTAL $200.00". Here the reduction is derived in the same pass
+// that builds the rows, so the rows sum to the subtotal by construction. Pin it.
+describe('itemized rows sum to the subtotal', () => {
+  const GROWTH_CELLS = [
+    { paintAge: '<6mo', lastCleaned: '<2' },     // 0% growth
+    { paintAge: '1.5-2yr', lastCleaned: '7-8' }, // mid ladder
+    { paintAge: '2+yr', lastCleaned: '24+' },    // SEV, 200%
+  ];
+
+  for (const serviceKey of ['cleaning', 'running_gear']) {
+    it(`holds for ${serviceKey} across hulls, cadences, props, anodes and growth`, () => {
+      for (const boatLength of [12, 33, 40, 80]) {
+        for (const boatType of ['sailboat', 'powerboat']) {
+          for (const hullType of ['monohull', 'catamaran', 'trimaran']) {
+            for (const frequency of ['monthly', 'onetime']) {
+              for (const propellerCount of [1, 2, 3]) {
+                for (const anodeCount of [0, 4]) {
+                  for (const cell of GROWTH_CELLS) {
+                    const inputs = {
+                      serviceKey, boatLength, boatType, hullType, frequency,
+                      propellerCount, anodeCount, ...cell,
+                    };
+                    const estimate = calculateEstimate(inputs);
+                    const summed = estimate.items.reduce((acc, item) => acc + item.amount, 0);
+                    expect(summed, JSON.stringify(inputs)).toBeCloseTo(estimate.subtotal, 9);
+                    // The invariant that actually matters for a rendered receipt
+                    // is rows-sum-to-TOTAL. It holds whenever the minimum charge
+                    // is not engaged; when it is, there is a pre-existing gap —
+                    // pinned explicitly in the next test rather than skipped here.
+                    if (!estimate.minimumApplied) {
+                      expect(summed, JSON.stringify(inputs)).toBeCloseTo(estimate.total, 9);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  it('shows the running-gear hull lines at full price with the reduction as its own line', () => {
+    const estimate = calculateEstimate({
+      serviceKey: 'running_gear', boatLength: 40, boatType: 'powerboat', hullType: 'monohull',
+      frequency: 'onetime', propellerCount: 2, paintAge: '<6mo', lastCleaned: '<2', anodeCount: 4,
+    });
+    const labels = estimate.items.map((item) => item.label);
+    expect(labels).toEqual([
+      'Base rate', 'Powerboat surcharge', 'Additional propeller', 'Running gear only', 'Anode installation',
+    ]);
+    // Hull rows undiscounted, one negative reduction row, anodes at full price.
+    expect(estimate.items[0].amount).toBe(240);
+    expect(estimate.items[3].amount).toBeCloseTo(-97.2, 9);
+    expect(estimate.items[4].amount).toBe(60);
+    expect(estimate.subtotal).toBeCloseTo(286.8, 9);
+  });
+
+  // KNOWN GAP, pre-existing, NOT introduced here — pinned so it is visible
+  // rather than latent. On the per-foot path the minimum service charge is
+  // applied as `total = max(minimum, subtotal)` with NO corresponding row, so a
+  // floored estimate's rows sum to the subtotal and not to the total. Cleaning
+  // has always behaved this way; running gear does not change the mechanism but
+  // roughly doubles how often it is reached (448 vs 243 floored configs across
+  // an identical 1,224-config small-boat sweep), because the 0.70 reduction
+  // pushes more boats under the floor. Harmless today — nothing writes
+  // service_details.breakdown, so no receipt renders these rows — but if that
+  // section is ever wired, a small-boat receipt would show rows summing to
+  // $94.50 above a printed TOTAL of $150.00. The fix is a "Minimum service
+  // charge" top-up row; deliberately not made here because it would change
+  // cleaning's itemization, which is outside this change's scope.
+  it('does NOT sum to the total when the minimum charge is applied (known gap)', () => {
+    for (const serviceKey of ['cleaning', 'running_gear']) {
+      const estimate = calculateEstimate({
+        serviceKey, boatLength: 12, boatType: 'sailboat', hullType: 'monohull',
+        frequency: 'monthly', propellerCount: 1, paintAge: '<6mo', lastCleaned: '<2', anodeCount: 0,
+      });
+      const summed = estimate.items.reduce((acc, item) => acc + item.amount, 0);
+      expect(estimate.minimumApplied).toBe(true);
+      expect(estimate.total).toBe(RATES.minimum);
+      expect(summed).toBeCloseTo(estimate.subtotal, 9);
+      expect(summed).not.toBeCloseTo(estimate.total, 9);
+      expect(estimate.items.some((item) => /minimum/i.test(item.label))).toBe(false);
+    }
+  });
+
+  it('emits no reduction line for cleaning', () => {
+    const estimate = calculateEstimate({
+      serviceKey: 'cleaning', boatLength: 40, boatType: 'powerboat', hullType: 'monohull',
+      frequency: 'onetime', propellerCount: 2, paintAge: '<6mo', lastCleaned: '<2', anodeCount: 4,
+    });
+    expect(estimate.items.some((item) => item.label === 'Running gear only')).toBe(false);
+    expect(estimate.items.every((item) => item.amount >= 0)).toBe(true);
+    expect(estimate.subtotal).toBe(384);
+  });
+});
+
 // ── Service definitions ──
 
 describe('Service Definitions', () => {
-  it('should have all 5 service types defined', () => {
+  it('should have all 6 service types defined', () => {
     expect(Object.keys(SERVICES)).toEqual([
-      'cleaning', 'underwater_inspection', 'item_recovery', 'propeller_service', 'anodes_only'
+      'cleaning', 'running_gear', 'underwater_inspection', 'item_recovery', 'propeller_service', 'anodes_only'
     ]);
   });
 

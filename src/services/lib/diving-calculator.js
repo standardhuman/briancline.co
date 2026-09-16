@@ -11,6 +11,12 @@ export const SERVICES = {
     type: "per_foot",
     description: "Hull cleaning with anode inspection.",
   },
+  running_gear: {
+    key: "running_gear",
+    name: "Running Gear & Anodes",
+    type: "per_foot",
+    description: "Props, shafts, struts and trim tabs cleaned, anodes serviced, thru-hulls checked. No broad hull clean.",
+  },
   underwater_inspection: {
     key: "underwater_inspection",
     name: "Underwater Inspection",
@@ -55,9 +61,28 @@ const SURCHARGES = {
   trimaran: 0.50,
 };
 
+// Running gear skips the broad hull, so it bills 70% of the comparable
+// full-clean charge. The reduction applies to the hull rate, its boat-type /
+// hull-type / propeller surcharges, and the growth surcharge. Anode
+// installation is pass-through labor: never discounted, added after the
+// multiplier, and still counted toward the minimum service charge (the same
+// composition "Cleaning & Anodes" and "Anodes Only" use). This MUST stay in
+// lockstep with RUNNING_GEAR_MULTIPLIER in
+// supabase/functions/_shared/checkout-quote.ts — the edge function recomputes
+// the canonical quote and rejects any submission that disagrees.
+const RUNNING_GEAR_MULTIPLIER = 0.70;
+
+/** Services priced off the per-foot cleaning ladder (rate, surcharges, growth
+ *  matrix, cadence, anodes). Running gear is a discounted member of this family,
+ *  not a separate rate card. */
+function isCleaningFamily(serviceKey) {
+  return serviceKey === "cleaning" || serviceKey === "running_gear";
+}
+
 // ── Which input cards to show per service ──
 export const SERVICE_VISIBILITY = {
   cleaning:              { boatLength: true, boatType: true, frequency: true, propellers: true, paintAge: true, lastCleaned: true, anodes: true },
+  running_gear:          { boatLength: true, boatType: true, frequency: true, propellers: true, paintAge: true, lastCleaned: true, anodes: true },
   underwater_inspection: { boatLength: true, boatType: true, frequency: false, propellers: false, paintAge: false, lastCleaned: false, anodes: false },
   item_recovery:         { boatLength: false, boatType: false, frequency: false, propellers: false, paintAge: false, lastCleaned: false, anodes: false },
   propeller_service:     { boatLength: false, boatType: false, frequency: false, propellers: true, paintAge: false, lastCleaned: false, anodes: false },
@@ -200,7 +225,8 @@ export function calculateEstimate({
     };
   }
 
-  // ── Per-foot services (cleaning, inspection) ──
+  // ── Per-foot services (cleaning, running gear, inspection) ──
+  const cleaningFamily = isCleaningFamily(serviceKey);
   const isOneTime = serviceKey === "underwater_inspection" || frequency === "onetime";
   let rate;
   if (serviceKey === "underwater_inspection") rate = RATES.inspection;
@@ -252,7 +278,7 @@ export function calculateEstimate({
   }
 
   // Propeller surcharge (cleaning services only)
-  if ((serviceKey === "cleaning") && propellerCount > 1) {
+  if (cleaningFamily && propellerCount > 1) {
     const additional = propellerCount - 1;
     const pct = additional * 0.10;
     const amt = baseCost * pct;
@@ -266,10 +292,12 @@ export function calculateEstimate({
 
   // Growth surcharge (cleaning services only)
   let fouling = null;
-  if (serviceKey === "cleaning") {
+  let growthAmount = 0;
+  if (cleaningFamily) {
     fouling = lookupFouling(paintAge, lastCleaned);
     if (fouling.surcharge > 0) {
       const amt = baseCost * fouling.surcharge;
+      growthAmount = amt;
       surchargeTotal += amt;
       items.push({
         label: `Est. growth (${fouling.label})`,
@@ -279,9 +307,26 @@ export function calculateEstimate({
     }
   }
 
-  // Anode installation (cleaning services only)
+  // Running gear skips the broad hull: the hull rate, its boat-type / hull-type
+  // / propeller surcharges and the growth surcharge all bill at 70%. The hull
+  // lines above stay at FULL price and the reduction renders as its own visible
+  // negative line, so the itemized rows still sum to the subtotal (this also
+  // matches how SailorSkills Pro itemizes the same service).
+  const hullPortion = baseCost + surchargeTotal;
+  const discountMultiplier = serviceKey === "running_gear" ? RUNNING_GEAR_MULTIPLIER : 1;
+  const reduction = hullPortion * (1 - discountMultiplier);
+  if (reduction > 0) {
+    items.push({
+      label: "Running gear only",
+      detail: `${((1 - discountMultiplier) * 100).toFixed(0)}% off the full-clean rate`,
+      amount: -reduction,
+    });
+  }
+
+  // Anode installation (cleaning-family services only). Never discounted — it is
+  // pass-through labor billed on top of the reduced hull portion.
   let anodeCost = 0;
-  if ((serviceKey === "cleaning") && anodeCount > 0) {
+  if (cleaningFamily && anodeCount > 0) {
     anodeCost = anodeCount * RATES.anode;
     items.push({
       label: "Anode installation",
@@ -290,7 +335,7 @@ export function calculateEstimate({
     });
   }
 
-  const subtotal = baseCost + surchargeTotal + anodeCost;
+  const subtotal = hullPortion * discountMultiplier + anodeCost;
   const minimumApplied = subtotal > 0 && subtotal < RATES.minimum;
   const total = minimumApplied ? RATES.minimum : subtotal;
 
@@ -302,6 +347,13 @@ export function calculateEstimate({
     rate,
     isOneTime,
     fouling,
+    // Structural pieces the range/scale helpers re-price at other growth
+    // fractions without re-deriving the surcharge ladder. `fixedNoGrowth` is the
+    // FULL-price hull portion excluding growth and anodes; the reduction and the
+    // anode fees are applied by the caller in the same order as above.
+    fixedNoGrowth: hullPortion - growthAmount,
+    anodeCost,
+    discountMultiplier,
   };
 }
 
@@ -348,7 +400,7 @@ export function conditionPriceRange({
   lastCleaned = "<2",
   anodeCount = 0,
 } = {}) {
-  if (serviceKey !== "cleaning") return null;
+  if (!isCleaningFamily(serviceKey)) return null;
 
   const len = parseInt(boatLength, 10);
   if (!len || len < 1) return null;
@@ -360,10 +412,11 @@ export function conditionPriceRange({
     propellerCount, paintAge: "<6mo", lastCleaned: "<2", anodeCount,
   });
   const base = clean.rate * len;
-  const subtotalNoGrowth = clean.subtotal;
+  const priceAtSurcharge = (surcharge) =>
+    clean.discountMultiplier * (clean.fixedNoGrowth + base * surcharge) + clean.anodeCost;
 
   const tiers = CONDITION_TIERS.map((tier) => {
-    const subtotal = subtotalNoGrowth + base * tier.surcharge;
+    const subtotal = priceAtSurcharge(tier.surcharge);
     const minimumApplied = subtotal > 0 && subtotal < RATES.minimum;
     return {
       key: tier.key,
@@ -478,20 +531,20 @@ export function estimateScale({
   lastCleaned = "<2",
   anodeCount = 0,
 } = {}) {
-  if (serviceKey !== "cleaning") return null;
+  if (!isCleaningFamily(serviceKey)) return null;
 
   const len = parseInt(boatLength, 10);
   if (!len || len < 1) return null;
 
   // Everything except growth, at the cleanest matrix cell (Minimal = 0% growth).
-  // `base` is the amount each growth fraction multiplies; `subtotalNoGrowth` is
-  // the fixed floor the growth dollars stack onto.
+  // `base` is the amount each growth fraction multiplies; `fixedNoGrowth` is the
+  // full-price hull portion the growth dollars stack onto BEFORE the running-gear
+  // reduction, with the undiscounted anode fees added after it.
   const clean = calculateEstimate({
     serviceKey, boatLength: len, boatType, hullType, frequency,
     propellerCount, paintAge: "<6mo", lastCleaned: "<2", anodeCount,
   });
   const base = clean.rate * len;
-  const subtotalNoGrowth = clean.subtotal;
 
   const hasPrediction =
     PAINT_COLS.includes(paintAge) &&
@@ -508,7 +561,8 @@ export function estimateScale({
     : SEV_SURCHARGE;
 
   const priceAt = (frac) => {
-    const subtotal = subtotalNoGrowth + base * frac;
+    const subtotal =
+      clean.discountMultiplier * (clean.fixedNoGrowth + base * frac) + clean.anodeCost;
     return subtotal > 0 && subtotal < RATES.minimum ? RATES.minimum : subtotal;
   };
   const minPrice = priceAt(minSurcharge);

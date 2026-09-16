@@ -459,6 +459,23 @@ export default function Diving() {
                   </div>
                 </OptionButton>
 
+                {/* Running gear — the hull-free alternative to a full clean.
+                    Full width alongside the primary service because it is a
+                    direct substitute for it, not a small add-on. */}
+                <OptionButton
+                  selected={serviceKey === "running_gear"}
+                  onClick={() => setServiceKey("running_gear")}
+                  className="w-full py-5 flex items-center justify-center gap-3"
+                >
+                  <PropellerIcon className="w-7 h-7 text-[#0073a8] flex-shrink-0" />
+                  <div>
+                    <div className="font-semibold text-base">Running Gear &amp; Anodes</div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      Props, shafts, anodes, thru-hulls · 30% off the full-clean rate
+                    </div>
+                  </div>
+                </OptionButton>
+
                 {/* Secondary services — 2x2 grid */}
                 <div className="grid grid-cols-2 gap-3">
                   <OptionButton selected={serviceKey === "underwater_inspection"} onClick={() => setServiceKey("underwater_inspection")}>
