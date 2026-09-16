@@ -112,6 +112,34 @@ const INTERVAL_MONTHS: Record<string, number> = {
   '3': 3, quarterly: 3, '6': 6, biannual: 6,
 }
 
+/**
+ * Record a non-fatal checkout bookkeeping write that failed.
+ *
+ * supabase-js RETURNS errors rather than throwing them, so an `await …insert()`
+ * whose result is discarded swallows the failure completely: the request runs to
+ * completion, the customer is charged, and the row simply never exists. That is
+ * invisible until someone notices months later — a recurring boat that never
+ * comes due, a billing address that was never saved.
+ *
+ * These writes deliberately do NOT fail the request. They are bookkeeping around
+ * an order whose payment method is already being set up with Stripe; returning a
+ * 400 here would tell the customer their order failed when it did not, which is
+ * strictly worse than a missing row we can repair. So: log loudly, keep going.
+ *
+ * The log line is the ONLY signal today — this repo has no production error
+ * monitoring (see `docs/2nd-tenant-GA-checklist.md` section 9, "Error
+ * visibility"). Real alerting rides on that checklist item. The prefix is a
+ * fixed, greppable token so a log search can find every instance, and `ref`
+ * carries the order number (or the customer email for writes that happen before
+ * the order number exists) so the affected row is identifiable.
+ */
+function logCheckoutWriteFailure(table: string, ref: string, error: unknown): void {
+  console.error(
+    `[checkout-write-failed] table=${table} ref=${ref} — request continued, row NOT written:`,
+    error,
+  )
+}
+
 function providerOwnerLookup(supabase: any): ProviderOwnerLookup {
   const uniqueOwner = (rows: Array<{ owner_user_id: string }> | null): string | null =>
     rows?.length === 1 ? rows[0].owner_user_id : null
@@ -311,7 +339,11 @@ serve(async (req) => {
           line1: formData.billingAddress, city: formData.billingCity, state: formData.billingState, country: 'US',
         },
       })
-      await supabase.from('customers').update({ stripe_customer_id: stripeCustomer.id }).eq('id', customer.id)
+      // Pre-order writes reference the customer email: `orderNumber` is not
+      // generated until the order row is created, further down.
+      const { error: linkError } = await supabase.from('customers')
+        .update({ stripe_customer_id: stripeCustomer.id }).eq('id', customer.id)
+      if (linkError) logCheckoutWriteFailure('customers', `email:${formData.customerEmail}`, linkError)
     }
 
     const { data: existingAddress } = await supabase.from('addresses')
@@ -321,9 +353,12 @@ serve(async (req) => {
       city: formData.billingCity, state: formData.billingState, zip: formData.billingZip || null,
     }
     if (existingAddress) {
-      await supabase.from('addresses').update(addressData).eq('id', existingAddress.id)
+      const { error: addressError } = await supabase.from('addresses')
+        .update(addressData).eq('id', existingAddress.id)
+      if (addressError) logCheckoutWriteFailure('addresses', `email:${formData.customerEmail}`, addressError)
     } else {
-      await supabase.from('addresses').insert(addressData)
+      const { error: addressError } = await supabase.from('addresses').insert(addressData)
+      if (addressError) logCheckoutWriteFailure('addresses', `email:${formData.customerEmail}`, addressError)
     }
 
     let boat = null
@@ -371,10 +406,14 @@ serve(async (req) => {
         if (row) { existingBoat = row; break }
       }
       if (existingBoat) {
-        const { data: updatedBoat } = await supabase.from('boats').update(boatData).eq('id', existingBoat.id).select().single()
+        const { data: updatedBoat, error: boatError } = await supabase.from('boats')
+          .update(boatData).eq('id', existingBoat.id).select().single()
+        if (boatError) logCheckoutWriteFailure('boats', `email:${formData.customerEmail}`, boatError)
         boat = updatedBoat
       } else {
-        const { data: newBoat } = await supabase.from('boats').insert(boatData).select().single()
+        const { data: newBoat, error: boatError } = await supabase.from('boats')
+          .insert(boatData).select().single()
+        if (boatError) logCheckoutWriteFailure('boats', `email:${formData.customerEmail}`, boatError)
         boat = newBoat
       }
     }
@@ -382,6 +421,9 @@ serve(async (req) => {
     let marina = null
     if (formData.service !== 'Item Recovery' && formData.marinaName && formData.marinaName !== 'See recovery location') {
       const marinaResult = await supabase.from('marinas').upsert({ name: formData.marinaName }, { onConflict: 'name' }).select().single()
+      if (marinaResult.error) {
+        logCheckoutWriteFailure('marinas', `email:${formData.customerEmail}`, marinaResult.error)
+      }
       marina = marinaResult.data
     }
 
@@ -486,11 +528,15 @@ serve(async (req) => {
 
     if (formData.serviceInterval !== 'one-time' && !requiresReview) {
       const intervalMonths = INTERVAL_MONTHS[String(formData.serviceInterval || '')] || 1
-      await supabase.from('service_schedules').insert({
+      // This is the row that makes a recurring order actually recur. If it is
+      // lost the order still completes and the card is still saved, so the
+      // failure is invisible until the boat never comes due — log it loudly.
+      const { error: scheduleError } = await supabase.from('service_schedules').insert({
         customer_id: customer.id, boat_id: boat?.id,
         service_type: formData.service, interval_months: intervalMonths,
         next_service_date: new Date(Date.now() + (intervalMonths * 30 * 24 * 60 * 60 * 1000)),
       })
+      if (scheduleError) logCheckoutWriteFailure('service_schedules', orderNumber, scheduleError)
     }
 
     const serviceTypeMap: Record<string, string> = {
@@ -520,7 +566,11 @@ serve(async (req) => {
       status: requiresReview ? 'pending_review' : 'active',
       notes: formData.customerNotes || null,
     }
-    await supabase.from('customer_services').insert(customerServiceData)
+    const { error: customerServiceError } = await supabase
+      .from('customer_services').insert(customerServiceData)
+    if (customerServiceError) {
+      logCheckoutWriteFailure('customer_services', orderNumber, customerServiceError)
+    }
 
     const quoteMetadata: Record<string, string> = checkoutQuote.mode === 'exact'
       ? {
@@ -581,11 +631,15 @@ serve(async (req) => {
       throw new Error('Could not record authorization')
     }
 
-    await supabase.from('service_orders').update({
+    // Links the order to its setup intent and authorization. The setup intent
+    // already exists at this point, so failing the request would strand it;
+    // the linkage can be repaired from the authorization row and Stripe metadata.
+    const { error: linkOrderError } = await supabase.from('service_orders').update({
       stripe_customer_id: stripeCustomer.id,
       stripe_setup_intent_id: setupIntent.id,
       order_authorization_id: authRow.id,
     }).eq('id', order.id)
+    if (linkOrderError) logCheckoutWriteFailure('service_orders', orderNumber, linkOrderError)
 
     return new Response(JSON.stringify({
       clientSecret, intentType, orderId: order.id, orderNumber, requiresReview,
