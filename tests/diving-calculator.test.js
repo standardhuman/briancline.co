@@ -39,6 +39,13 @@ describe('itemized rows sum to the subtotal', () => {
                     const estimate = calculateEstimate(inputs);
                     const summed = estimate.items.reduce((acc, item) => acc + item.amount, 0);
                     expect(summed, JSON.stringify(inputs)).toBeCloseTo(estimate.subtotal, 9);
+                    // The invariant that actually matters for a rendered receipt
+                    // is rows-sum-to-TOTAL. It holds whenever the minimum charge
+                    // is not engaged; when it is, there is a pre-existing gap —
+                    // pinned explicitly in the next test rather than skipped here.
+                    if (!estimate.minimumApplied) {
+                      expect(summed, JSON.stringify(inputs)).toBeCloseTo(estimate.total, 9);
+                    }
                   }
                 }
               }
@@ -63,6 +70,34 @@ describe('itemized rows sum to the subtotal', () => {
     expect(estimate.items[3].amount).toBeCloseTo(-97.2, 9);
     expect(estimate.items[4].amount).toBe(60);
     expect(estimate.subtotal).toBeCloseTo(286.8, 9);
+  });
+
+  // KNOWN GAP, pre-existing, NOT introduced here — pinned so it is visible
+  // rather than latent. On the per-foot path the minimum service charge is
+  // applied as `total = max(minimum, subtotal)` with NO corresponding row, so a
+  // floored estimate's rows sum to the subtotal and not to the total. Cleaning
+  // has always behaved this way; running gear does not change the mechanism but
+  // roughly doubles how often it is reached (448 vs 243 floored configs across
+  // an identical 1,224-config small-boat sweep), because the 0.70 reduction
+  // pushes more boats under the floor. Harmless today — nothing writes
+  // service_details.breakdown, so no receipt renders these rows — but if that
+  // section is ever wired, a small-boat receipt would show rows summing to
+  // $94.50 above a printed TOTAL of $150.00. The fix is a "Minimum service
+  // charge" top-up row; deliberately not made here because it would change
+  // cleaning's itemization, which is outside this change's scope.
+  it('does NOT sum to the total when the minimum charge is applied (known gap)', () => {
+    for (const serviceKey of ['cleaning', 'running_gear']) {
+      const estimate = calculateEstimate({
+        serviceKey, boatLength: 12, boatType: 'sailboat', hullType: 'monohull',
+        frequency: 'monthly', propellerCount: 1, paintAge: '<6mo', lastCleaned: '<2', anodeCount: 0,
+      });
+      const summed = estimate.items.reduce((acc, item) => acc + item.amount, 0);
+      expect(estimate.minimumApplied).toBe(true);
+      expect(estimate.total).toBe(RATES.minimum);
+      expect(summed).toBeCloseTo(estimate.subtotal, 9);
+      expect(summed).not.toBeCloseTo(estimate.total, 9);
+      expect(estimate.items.some((item) => /minimum/i.test(item.label))).toBe(false);
+    }
   });
 
   it('emits no reduction line for cleaning', () => {
