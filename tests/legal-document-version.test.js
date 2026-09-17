@@ -9,12 +9,14 @@ import {
   TERMS_OF_SERVICE,
 } from "../src/services/pages/legal/terms-content.js";
 
-const EXPECTED_VERSION = "2026-08-05";
-const EXPECTED_EFFECTIVE_DATE = "August 5, 2026";
+const EXPECTED_VERSION = "2026-10-21";
+const EXPECTED_EFFECTIVE_DATE = "October 21, 2026";
 const EXPECTED_TERMS_HASH =
-  "5877411a2992ecc21b7451763e8f22b113fa424a46b12d477b32cd4ef8eb25c3";
+  "83da6125073d903a33a508130f6034917897525adf672a52a9cc5f04ea825448";
 const EXPECTED_RECURRING_HASH =
   "39d9489ac23233f268d499d31109b8cd30e9e57373d52759c49f3cda776644f9";
+const PRIOR_TERMS_HASH =
+  "5877411a2992ecc21b7451763e8f22b113fa424a46b12d477b32cd4ef8eb25c3";
 const OLD_BANNER =
   "**Version 2026-05-01 — PLACEHOLDER PENDING ATTORNEY REVIEW**";
 
@@ -27,7 +29,7 @@ function sha256(body) {
 }
 
 describe("legal document version contract", () => {
-  test("publishes the pinned 2026-08-05 legal documents without changing history", () => {
+  test("publishes the pinned 2026-10-21 legal documents without changing history", () => {
     const terms = TERMS_OF_SERVICE[EXPECTED_VERSION];
     const recurring = RECURRING_AUTHORIZATION[EXPECTED_VERSION];
 
@@ -46,6 +48,35 @@ describe("legal document version contract", () => {
 
     expect(TERMS_OF_SERVICE["2026-05-01"].body).toContain(OLD_BANNER);
     expect(RECURRING_AUTHORIZATION["2026-05-01"].body).toContain(OLD_BANNER);
+    expect(sha256(TERMS_OF_SERVICE["2026-08-05"].body)).toBe(PRIOR_TERMS_HASH);
+    expect(sha256(RECURRING_AUTHORIZATION["2026-08-05"].body)).toBe(
+      EXPECTED_RECURRING_HASH,
+    );
+  });
+
+  test("2026-10-21 adds the payment terms section without touching the rest", () => {
+    const terms = TERMS_OF_SERVICE[EXPECTED_VERSION];
+
+    expect(terms.body).toContain("## 8. Payment Terms");
+    expect(terms.body).toContain("## 9. Dispute Resolution");
+    expect(terms.body).toContain("## 13. Data Retention");
+    expect(terms.body).toContain(
+      "a late charge of 1.5% per month (18% per year) or $25, whichever",
+    );
+
+    // The recurring authorization stays in lockstep but is textually unchanged.
+    expect(RECURRING_AUTHORIZATION[EXPECTED_VERSION].body).toBe(
+      RECURRING_AUTHORIZATION["2026-08-05"].body,
+    );
+
+    // Strip the new section and undo the renumbering: the remainder must be
+    // byte-identical to the previously published terms.
+    const stripped = terms.body
+      .replace(/\n\n## 8\. Payment Terms\n\n[\s\S]*?(?=\n\n## 9\.)/, "")
+      .replace(/^## (\d+)\./gm, (match, n) =>
+        Number(n) >= 9 ? `## ${Number(n) - 1}.` : match,
+      );
+    expect(stripped).toBe(TERMS_OF_SERVICE["2026-08-05"].body);
   });
 
   test("checkout derives its submitted legal version from ACTIVE_VERSION", () => {
