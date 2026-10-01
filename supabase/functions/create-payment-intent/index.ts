@@ -44,7 +44,6 @@ const turnstileSecret = Deno.env.get('TURNSTILE_SECRET_KEY') || undefined
 const allowedOrigins = [
   'https://briancline.co',
   'https://www.briancline.co',
-  'https://cost-calculator-sigma.vercel.app',
   'https://sailorskills-estimator.vercel.app',
   'https://sailorskills-estimator-309d9lol8-brians-projects-bc2d3592.vercel.app',
   'https://diving.sailorskills.com',
