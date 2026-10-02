@@ -42,9 +42,28 @@ export function firstKeyFromJson(raw: string | undefined | null, preferredName?:
 // takes them down.
 export const EDGE_FUNCTIONS_SECRET_NAME = 'edge_functions'
 
-/** Server-side secret key: the `edge_functions` entry of SUPABASE_SECRET_KEYS, else its default/first entry, else legacy SUPABASE_SERVICE_ROLE_KEY. */
+/** Exact named entry of a SUPABASE_*_KEYS JSON map, or '' (never another entry). */
+export function namedKeyFromJson(raw: string | undefined | null, name: string): string {
+  if (!raw || !raw.trim()) return ''
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const v = (parsed as Record<string, unknown>)[name]
+      if (typeof v === 'string') return v.trim()
+    }
+  } catch {
+    // malformed JSON: treat as absent
+  }
+  return ''
+}
+
+/**
+ * Server-side secret key: the `edge_functions` entry of SUPABASE_SECRET_KEYS,
+ * else legacy SUPABASE_SERVICE_ROLE_KEY. Never borrows another app's secret
+ * (pro_vercel, marketplace_vercel, scripts), so revoking one can't break this.
+ */
 export function resolveSecretKey(env: EnvGetter = denoEnv): string {
-  return firstKeyFromJson(env('SUPABASE_SECRET_KEYS'), EDGE_FUNCTIONS_SECRET_NAME) ||
+  return namedKeyFromJson(env('SUPABASE_SECRET_KEYS'), EDGE_FUNCTIONS_SECRET_NAME) ||
     (env('SUPABASE_SERVICE_ROLE_KEY') ?? '').trim()
 }
 
