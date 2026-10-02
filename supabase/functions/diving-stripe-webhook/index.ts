@@ -14,6 +14,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import Stripe from 'https://esm.sh/stripe@12.18.0?target=deno'
+import { resolveSecretKey } from '../_shared/supabase-keys.ts'
 import { Resend } from 'https://esm.sh/resend@2.0.0'
 import {
   interpretSendSmsResponse,
@@ -48,7 +49,13 @@ const resend = new Resend(
 )
 
 const supabaseUrl = (Deno.env.get('SUPABASE_URL') ?? '').trim()
-const serviceRoleKey = (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '').trim()
+// DB client key: prefers the new sb_secret_ key (SUPABASE_SECRET_KEYS), falls
+// back to the legacy SUPABASE_SERVICE_ROLE_KEY.
+const serviceRoleKey = resolveSecretKey()
+// send-sms (Marketplace PR #161) accepts any project secret key in apikey or
+// Bearer. Deploy this function only after #161 is live: the pre-#161 send-sms
+// compares the bearer to the legacy service_role JWT and would reject a secret key.
+const sendSmsAuthKey = serviceRoleKey
 const orderNotifyPhoneE164 = (Deno.env.get('ORDER_NOTIFY_PHONE_E164') ?? '').trim()
 const defaultProviderOwnerUserId = (Deno.env.get('DEFAULT_PROVIDER_OWNER_USER_ID') ?? '').trim()
 const operatorSmsConfigValid = Boolean(
@@ -308,7 +315,8 @@ async function sendOperatorSms(to: string, body: string): Promise<SendSmsOutcome
       method: 'POST',
       signal: AbortSignal.timeout(10_000),
       headers: {
-        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: sendSmsAuthKey,
+        Authorization: `Bearer ${sendSmsAuthKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ to, body }),

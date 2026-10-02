@@ -94,7 +94,8 @@ export async function verifyTurnstile(
   secret: string | undefined,
   remoteIp: string | null,
 ): Promise<{ ok: boolean; reason?: string }> {
-  if (!secret) return { ok: true }
+  // Fail closed: an unconfigured secret must never wave a request through.
+  if (!secret) return { ok: false, reason: 'turnstile-not-configured' }
   if (!token) return { ok: false, reason: 'turnstile-missing' }
   const body = new URLSearchParams({ secret, response: token })
   if (remoteIp) body.append('remoteip', remoteIp)

@@ -25,6 +25,13 @@ import {
 // ── Config ──
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Edge-function auth headers. Send the key as BOTH apikey and Bearer: a new
+// sb_publishable_ key is only accepted in Authorization when it equals apikey,
+// and this also keeps working with the legacy anon JWT.
+function supabaseFunctionHeaders() {
+  return { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` };
+}
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY;
 
 // Server validates this matches an existing version before persisting consent.
@@ -72,7 +79,7 @@ let stripePromise = null;
 function getStripePromise() {
   if (stripePromise) return stripePromise;
   stripePromise = fetch(`${SUPABASE_URL}/functions/v1/get-stripe-config`, {
-    headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    headers: supabaseFunctionHeaders(),
   })
     .then((res) => res.json())
     .then(({ publishableKey }) => loadStripe(publishableKey));
@@ -594,7 +601,7 @@ function OrderForm({ searchParams, navigate }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          ...supabaseFunctionHeaders(),
         },
         body: JSON.stringify({ formData }),
       });
