@@ -1,0 +1,18 @@
+# Supabase CLI config for the briancline.co edge functions (project
+# aaxnoeirtjlizdhnbqbr). Only the per-function settings matter here; deploy with
+#   supabase functions deploy <name> --project-ref aaxnoeirtjlizdhnbqbr
+project_id = "briancline-co"
+
+# Public checkout endpoint. verify_jwt is OFF because the gateway rejects the new
+# sb_publishable_ keys as JWTs; the function gates itself with a mandatory,
+# fail-closed Cloudflare Turnstile check before any DB read or Stripe call.
+[functions.create-payment-intent]
+verify_jwt = false
+
+# Stripe webhook: authenticated by Stripe signature verification in code.
+[functions.diving-stripe-webhook]
+verify_jwt = false
+
+# Returns only the Stripe publishable key; public by design.
+[functions.get-stripe-config]
+verify_jwt = false

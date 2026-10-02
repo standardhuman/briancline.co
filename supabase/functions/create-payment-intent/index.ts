@@ -24,6 +24,7 @@ import {
   releaseReservedPromoClaim,
   type PromoApplied,
 } from '../_shared/service-promo.ts'
+import { resolveSecretKey } from '../_shared/supabase-keys.ts'
 
 const stripeMode = Deno.env.get('STRIPE_MODE') || 'test'
 const stripeSecretKey = stripeMode === 'live'
@@ -38,8 +39,13 @@ const stripe = new Stripe(stripeSecretKey ?? '', {
 })
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-const turnstileSecret = Deno.env.get('TURNSTILE_SECRET_KEY') || undefined
+const supabaseServiceKey = resolveSecretKey()
+// This function is deployed with verify_jwt = false (supabase/config.toml), so
+// the platform gateway does not authenticate callers. Cloudflare Turnstile is
+// the gate: it is mandatory and fails closed (secret unset, token missing,
+// token invalid, or siteverify unreachable => reject) and runs before any DB
+// read or Stripe call.
+const turnstileSecret = (Deno.env.get('TURNSTILE_SECRET_KEY') ?? '').trim() || undefined
 
 const allowedOrigins = [
   'https://briancline.co',
@@ -200,6 +206,11 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 429 })
     }
 
+    if (!turnstileSecret) {
+      console.error('TURNSTILE_SECRET_KEY is not configured; rejecting checkout (fail closed)')
+      return new Response(JSON.stringify({ error: 'Checkout is temporarily unavailable. Please try again later.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 503 })
+    }
     const turnstile = await verifyTurnstile(formData.turnstileToken, turnstileSecret, remoteIp)
     if (!turnstile.ok) {
       return new Response(JSON.stringify({ error: 'Verification failed. Please refresh and try again.' }),
