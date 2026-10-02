@@ -48,4 +48,10 @@ describe('resolveSecretKey / resolvePublishableKey', () => {
     expect(resolveSecretKey(env({}))).toBe('')
     expect(resolvePublishableKey(env({}))).toBe('')
   })
+  test('resolveSecretKey prefers the edge_functions secret by name', () => {
+    const keys = JSON.stringify({ pro_vercel: 'sb_secret_pro', edge_functions: 'sb_secret_edge', default: 'sb_secret_default' })
+    expect(resolveSecretKey(env({ SUPABASE_SECRET_KEYS: keys, SUPABASE_SERVICE_ROLE_KEY: 'legacy' }))).toBe('sb_secret_edge')
+    const noEdge = JSON.stringify({ default: 'sb_secret_default', pro_vercel: 'sb_secret_pro' })
+    expect(resolveSecretKey(env({ SUPABASE_SECRET_KEYS: noEdge }))).toBe('sb_secret_default')
+  })
 })

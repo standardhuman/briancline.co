@@ -14,7 +14,7 @@ export type EnvGetter = (name: string) => string | undefined
 const denoEnv: EnvGetter = (name) =>
   (globalThis as { Deno?: { env: { get(n: string): string | undefined } } }).Deno?.env.get(name)
 
-export function firstKeyFromJson(raw: string | undefined | null): string {
+export function firstKeyFromJson(raw: string | undefined | null, preferredName?: string): string {
   if (!raw || !raw.trim()) return ''
   let parsed: unknown
   try {
@@ -27,7 +27,9 @@ export function firstKeyFromJson(raw: string | undefined | null): string {
     values = parsed
   } else if (parsed && typeof parsed === 'object') {
     const obj = parsed as Record<string, unknown>
-    values = 'default' in obj ? [obj.default, ...Object.values(obj)] : Object.values(obj)
+    const preferred = preferredName && preferredName in obj ? [obj[preferredName]] : []
+    const fallback = 'default' in obj ? [obj.default, ...Object.values(obj)] : Object.values(obj)
+    values = [...preferred, ...fallback]
   }
   for (const v of values) {
     if (typeof v === 'string' && v.trim()) return v.trim()
@@ -35,9 +37,14 @@ export function firstKeyFromJson(raw: string | undefined | null): string {
   return ''
 }
 
-/** Server-side secret key: SUPABASE_SECRET_KEYS, else legacy SUPABASE_SERVICE_ROLE_KEY. */
+// Edge functions on this project use the secret named `edge_functions`, so
+// revoking an app's own secret (pro_vercel, marketplace_vercel, scripts) never
+// takes them down.
+export const EDGE_FUNCTIONS_SECRET_NAME = 'edge_functions'
+
+/** Server-side secret key: the `edge_functions` entry of SUPABASE_SECRET_KEYS, else its default/first entry, else legacy SUPABASE_SERVICE_ROLE_KEY. */
 export function resolveSecretKey(env: EnvGetter = denoEnv): string {
-  return firstKeyFromJson(env('SUPABASE_SECRET_KEYS')) ||
+  return firstKeyFromJson(env('SUPABASE_SECRET_KEYS'), EDGE_FUNCTIONS_SECRET_NAME) ||
     (env('SUPABASE_SERVICE_ROLE_KEY') ?? '').trim()
 }
 

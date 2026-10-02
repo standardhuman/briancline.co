@@ -52,10 +52,10 @@ const supabaseUrl = (Deno.env.get('SUPABASE_URL') ?? '').trim()
 // DB client key: prefers the new sb_secret_ key (SUPABASE_SECRET_KEYS), falls
 // back to the legacy SUPABASE_SERVICE_ROLE_KEY.
 const serviceRoleKey = resolveSecretKey()
-// send-sms (Marketplace repo) is still verify_jwt=true and compares its bearer
-// to its own SUPABASE_SERVICE_ROLE_KEY, so it must keep receiving the legacy
-// JWT until send-sms itself migrates. Switch this to serviceRoleKey then.
-const sendSmsAuthKey = (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '').trim() || serviceRoleKey
+// send-sms (Marketplace PR #161) accepts any project secret key in apikey or
+// Bearer. Deploy this function only after #161 is live: the pre-#161 send-sms
+// compares the bearer to the legacy service_role JWT and would reject a secret key.
+const sendSmsAuthKey = serviceRoleKey
 const orderNotifyPhoneE164 = (Deno.env.get('ORDER_NOTIFY_PHONE_E164') ?? '').trim()
 const defaultProviderOwnerUserId = (Deno.env.get('DEFAULT_PROVIDER_OWNER_USER_ID') ?? '').trim()
 const operatorSmsConfigValid = Boolean(
