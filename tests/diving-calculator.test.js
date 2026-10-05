@@ -179,7 +179,7 @@ describe('Rates', () => {
     expect(RATES.inspection).toBe(3.99);
     expect(RATES.itemRecovery).toBe(149);
     expect(RATES.propellerService).toBe(349);
-    expect(RATES.anodesOnlyMin).toBe(99);
+    expect(RATES.anodesOnlyMin).toBeUndefined();
     expect(RATES.minimum).toBe(150);
     expect(RATES.anode).toBe(15);
   });
@@ -257,6 +257,8 @@ describe('Item Recovery', () => {
     expect(est.items.length).toBe(1);
     expect(est.items[0].label).toBe('Item Recovery');
     expect(est.fouling).toBeNull();
+    expect(est.startingPrice).toBe(true);
+    expect(SERVICES.item_recovery.description).toContain('from $149');
   });
 
   it('should ignore all other parameters', () => {

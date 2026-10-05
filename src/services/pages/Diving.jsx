@@ -254,11 +254,17 @@ function EstimateCard({ estimate, boatLength, boatType, hullType, frequency, ser
         <CardContent className="space-y-4">
           <div className="text-center py-4">
             <div className="text-5xl font-bold">
+              {estimate.startingPrice && <span className="text-2xl font-medium text-white/80 mr-2">from</span>}
               {formatCurrency(estimate.total)}
             </div>
             <div className="text-white/70 text-sm mt-1">
               {estimate.isOneTime ? "one-time service" : "per service"}
             </div>
+            {estimate.startingPrice && (
+              <p className="text-white/70 text-xs mt-2">
+                Basic recoveries such as a phone or tool. Very small items (rings, watches), very large items, or multiple items are quoted by the job.
+              </p>
+            )}
           </div>
 
           <div className="bg-white/10 rounded-xl p-4 space-y-2 text-sm">

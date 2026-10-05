@@ -27,7 +27,7 @@ export const SERVICES = {
     key: "item_recovery",
     name: "Item Recovery",
     type: "flat",
-    description: "Basic recovery of a lost item such as a phone or tool. Up to 45 min search. Larger, smaller, or multiple items are quoted separately.",
+    description: "Basic recovery of a lost item such as a phone or tool, from $149. Includes a 20-minute search, plus another 20 minutes at no extra charge. Very small items (rings, watches), very large items, or multiple items are quoted by the job.",
   },
   propeller_service: {
     key: "propeller_service",
@@ -50,7 +50,6 @@ const RATES = {
   inspection: 3.99,
   itemRecovery: 149,
   propellerService: 349,
-  anodesOnlyMin: 99,
   minimum: 150.00,
   anode: 15.00,
 };
@@ -178,12 +177,14 @@ export function calculateEstimate({
   // ── Flat-rate services ──
   if (serviceKey === "item_recovery") {
     return {
-      items: [{ label: "Item Recovery", detail: "Flat rate", amount: RATES.itemRecovery }],
+      items: [{ label: "Item Recovery", detail: "Basic recovery", amount: RATES.itemRecovery }],
       subtotal: RATES.itemRecovery,
       total: RATES.itemRecovery,
       minimumApplied: false,
       rate: RATES.itemRecovery,
       isOneTime: true,
+      // $149 is the starting price; harder recoveries are quoted by the job.
+      startingPrice: true,
       fouling: null,
     };
   }
