@@ -247,9 +247,12 @@ describe('Fouling Lookup', () => {
 // ── Flat Rate Services ──
 
 describe('Item Recovery', () => {
-  it('should return flat $199', () => {
+  it('should return flat $149', () => {
     const est = calculateEstimate({ serviceKey: 'item_recovery' });
-    expect(est.total).toBe(199);
+    expect(est.total).toBe(149);
+    expect(est.subtotal).toBe(149);
+    expect(est.rate).toBe(149);
+    expect(est.items[0].amount).toBe(149);
     expect(est.isOneTime).toBe(true);
     expect(est.items.length).toBe(1);
     expect(est.items[0].label).toBe('Item Recovery');
@@ -266,7 +269,7 @@ describe('Item Recovery', () => {
       propellerCount: 4,
       anodeCount: 10,
     });
-    expect(est.total).toBe(199);
+    expect(est.total).toBe(149);
   });
 });
 

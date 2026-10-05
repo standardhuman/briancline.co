@@ -27,7 +27,7 @@ export const SERVICES = {
     key: "item_recovery",
     name: "Item Recovery",
     type: "flat",
-    description: "Recovery of lost items. Up to 45 min search.",
+    description: "Basic recovery of a lost item such as a phone or tool. Up to 45 min search. Larger, smaller, or multiple items are quoted separately.",
   },
   propeller_service: {
     key: "propeller_service",
@@ -178,11 +178,11 @@ export function calculateEstimate({
   // ── Flat-rate services ──
   if (serviceKey === "item_recovery") {
     return {
-      items: [{ label: "Item Recovery", detail: "Flat rate", amount: 149 }],
-      subtotal: 199,
-      total: 199,
+      items: [{ label: "Item Recovery", detail: "Flat rate", amount: RATES.itemRecovery }],
+      subtotal: RATES.itemRecovery,
+      total: RATES.itemRecovery,
       minimumApplied: false,
-      rate: 199,
+      rate: RATES.itemRecovery,
       isOneTime: true,
       fouling: null,
     };

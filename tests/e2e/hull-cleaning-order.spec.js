@@ -147,12 +147,12 @@ test.describe('Hull Cleaning Calculator UI', () => {
     expect(parsePrice(onetimeTotal)).toBeGreaterThan(parsePrice(monthlyTotal));
   });
 
-  test('item recovery should show flat $199', async ({ page }) => {
+  test('item recovery should show flat $149', async ({ page }) => {
     await page.getByRole('button', { name: 'Item Recovery', exact: true }).click();
     await page.waitForTimeout(200);
     const totalEl = page.locator('.text-5xl').first();
     const total = await totalEl.textContent();
-    expect(total).toContain('199');
+    expect(total).toContain('149');
   });
 
   test('propeller service should charge per propeller', async ({ page }) => {
