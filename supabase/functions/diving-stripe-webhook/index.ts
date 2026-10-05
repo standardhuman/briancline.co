@@ -26,6 +26,7 @@ import {
   readStoredCheckoutQuote,
   type FormattedCheckoutQuote,
 } from '../_shared/stored-checkout-quote.ts'
+import { buildPlanCancelUrl } from '../_shared/plan-cancel-token.ts'
 
 const stripeMode = Deno.env.get('STRIPE_MODE') || 'test'
 const stripeSecretKey = stripeMode === 'live'
@@ -175,7 +176,7 @@ async function handleSetupIntentSucceeded(
     const { data, error: orderUpdateErr } = await supabase.from('service_orders').update({
       stripe_payment_method_id: paymentMethodId, confirmation_email_sent_at: new Date().toISOString(),
     }).eq('id', authRow.service_order_id).is('confirmation_email_sent_at', null)
-      .select(`order_number, service_type, service_interval, estimate_mode, estimated_amount, estimated_min_amount, estimated_max_amount, notes, service_details, dock, slip_number, requires_review,
+      .select(`order_number, boat_id, service_type, service_interval, estimate_mode, estimated_amount, estimated_min_amount, estimated_max_amount, notes, service_details, dock, slip_number, requires_review,
         boat:boat_id ( name, length, make, model ), marina:marina_id ( name ), customer:customer_id ( name, email, phone )`)
       .maybeSingle()
     if (orderUpdateErr) throw new Error(`service_orders email-claim update failed: ${orderUpdateErr.message}`)
@@ -360,10 +361,19 @@ async function sendOrderEmails(order: any, cardBrand: string | null, cardLast4: 
   const checkoutQuote = readStoredCheckoutQuote(order)
   if (!checkoutQuote) throw new Error(`Order ${order.order_number} has no valid stored checkout quote`)
   const formattedQuote = formatCheckoutQuoteForEmail(checkoutQuote)
+  // Signed "Cancel my plan" link (Pro verifies it). Recurring plans only, keyed
+  // on the order's boat (the same boat_id its service_schedules row uses). Null
+  // when the boat or the PLAN_CANCEL_* env is missing; the email still sends.
+  const planCancelUrl = isRecurring && typeof order.boat_id === 'string' && order.boat_id
+    ? await buildPlanCancelUrl(order.boat_id).catch((err) => {
+      console.warn('Plan cancel link failed; sending without it:', (err as Error)?.message)
+      return null
+    })
+    : null
 
   const customerHtml = generateOrderConfirmationEmail(
     order.order_number, customer.name, order.service_type, formattedQuote,
-    isRecurring, order.service_interval, cardBrand, cardLast4,
+    isRecurring, order.service_interval, cardBrand, cardLast4, planCancelUrl,
   )
   const customerResult = await resend.emails.send({
     from: fromAddress, to: [customer.email],
@@ -418,7 +428,10 @@ function generateAdminNotificationEmail(
 function generateOrderConfirmationEmail(
   orderNumber: string, customerName: string, serviceType: string, formattedQuote: FormattedCheckoutQuote,
   isRecurring: boolean, serviceInterval: string, cardBrand: string | null, cardLast4: string | null,
+  planCancelUrl: string | null = null,
 ): string {
+  const cancelLine = (isRecurring && planCancelUrl)
+    ? `<p style="font-size:14px;color:#64748b;margin:0 0 12px;">Want to stop your plan? Cancel any time: <a href="${planCancelUrl}" style="color:#1565c0;text-decoration:underline;">Cancel my plan</a></p>` : ''
   const cardLine = (cardBrand && cardLast4)
     ? `<p style="margin:6px 0 0;font-size:12px;color:#0e7490;">Card on file: ${cardBrand} ····${cardLast4}</p>` : ''
   const paymentNote = isRecurring
@@ -426,7 +439,7 @@ function generateOrderConfirmationEmail(
     : formattedQuote.label === 'Estimated Range'
       ? `Your card is securely saved and will be charged after service completion based on the actual conditions documented in your service report.`
       : `Your card is securely saved and will be charged ${formattedQuote.value} after service completion.`
-  const body = `<div style="text-align:center;margin-bottom:28px;"><div style="display:inline-block;width:56px;height:56px;background-color:#ecfdf5;border-radius:50%;line-height:56px;font-size:28px;margin-bottom:12px;">✅</div><h1 style="margin:0;font-size:24px;font-weight:700;color:#1e293b;">Order Confirmed</h1></div><p style="font-size:16px;color:#334155;margin:0 0 20px;">Hi ${customerName},</p><p style="font-size:15px;color:#475569;margin:0 0 24px;">Thank you for your order. Here are the details:</p><table style="width:100%;border-collapse:collapse;margin-bottom:24px;">${detailRow('Order Number', '<span style="font-family:monospace;font-weight:600;">' + orderNumber + '</span>', true)}${detailRow('Service', serviceType)}${detailRow('Frequency', formatServiceInterval(serviceInterval), true)}${detailRow(formattedQuote.label, formattedQuote.value)}</table><div style="padding:14px 16px;background:linear-gradient(135deg,#e0f2fe,#e0f7fa);border-left:3px solid #0097a7;border-radius:4px;margin-bottom:24px;"><p style="margin:0;font-size:14px;color:#0e7490;"><strong>Payment Method Saved</strong></p><p style="margin:6px 0 0;font-size:13px;color:#155e75;">${paymentNote}</p>${cardLine}</div><p style="font-size:15px;color:#334155;margin:0 0 6px;font-weight:600;">What's Next?</p><p style="font-size:14px;color:#475569;margin:0 0 24px;">I'll be in touch to schedule your first service. You'll receive a notification once it's complete, along with underwater photos and a service report.</p><p style="font-size:14px;color:#64748b;margin:0;">Questions? Reach me at <a href="mailto:diving@briancline.co" style="color:#1565c0;text-decoration:none;">diving@briancline.co</a></p>`
+  const body = `<div style="text-align:center;margin-bottom:28px;"><div style="display:inline-block;width:56px;height:56px;background-color:#ecfdf5;border-radius:50%;line-height:56px;font-size:28px;margin-bottom:12px;">✅</div><h1 style="margin:0;font-size:24px;font-weight:700;color:#1e293b;">Order Confirmed</h1></div><p style="font-size:16px;color:#334155;margin:0 0 20px;">Hi ${customerName},</p><p style="font-size:15px;color:#475569;margin:0 0 24px;">Thank you for your order. Here are the details:</p><table style="width:100%;border-collapse:collapse;margin-bottom:24px;">${detailRow('Order Number', '<span style="font-family:monospace;font-weight:600;">' + orderNumber + '</span>', true)}${detailRow('Service', serviceType)}${detailRow('Frequency', formatServiceInterval(serviceInterval), true)}${detailRow(formattedQuote.label, formattedQuote.value)}</table><div style="padding:14px 16px;background:linear-gradient(135deg,#e0f2fe,#e0f7fa);border-left:3px solid #0097a7;border-radius:4px;margin-bottom:24px;"><p style="margin:0;font-size:14px;color:#0e7490;"><strong>Payment Method Saved</strong></p><p style="margin:6px 0 0;font-size:13px;color:#155e75;">${paymentNote}</p>${cardLine}</div><p style="font-size:15px;color:#334155;margin:0 0 6px;font-weight:600;">What's Next?</p><p style="font-size:14px;color:#475569;margin:0 0 24px;">I'll be in touch to schedule your first service. You'll receive a notification once it's complete, along with underwater photos and a service report.</p>${cancelLine}<p style="font-size:14px;color:#64748b;margin:0;">Questions? Reach me at <a href="mailto:diving@briancline.co" style="color:#1565c0;text-decoration:none;">diving@briancline.co</a></p>`
   return emailLayout('Order Confirmation', body)
 }
 
