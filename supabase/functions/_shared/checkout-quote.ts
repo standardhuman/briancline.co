@@ -9,20 +9,22 @@ const DEFAULTS: PricingConfig = {
   recurring_cleaning_rate: 4.5,
   onetime_cleaning_rate: 6,
   underwater_inspection_rate: 3.99,
-  item_recovery_rate: 199,
+  item_recovery_rate: 149,
   propeller_service_rate: 349,
   anodes_only_rate: 149,
   anode_installation_rate: 15,
 }
 
 // These three standalone-service prices are the customer-facing contract
-// shipped by diving-calculator.js. Production's legacy config table currently
-// contains rounded $200/$350/$4 values; using those here would make strict
-// validation reject the existing $199/$349/$3.99 checkout flows. Keep the
-// shipped values pinned until both surfaces move to one provider price book.
-const SHIPPED_STANDALONE_RATES = {
+// shipped by diving-calculator.js (RATES). Production's legacy
+// business_pricing_config table currently contains rounded $200/$350/$4 values;
+// using those here would make strict validation reject the shipped
+// $149/$349/$3.99 checkout flows. Keep the shipped values pinned until both
+// surfaces move to one provider price book. tests/checkout-quote-server.test.ts
+// asserts these stay equal to the browser calculator's RATES.
+export const SHIPPED_STANDALONE_RATES = {
   underwaterInspection: 3.99,
-  itemRecovery: 199,
+  itemRecovery: 149,
   propellerService: 349,
 }
 

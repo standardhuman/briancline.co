@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  SHIPPED_STANDALONE_RATES,
   calculateCanonicalQuote,
   parseSubmittedQuote,
   quotesEqual,
 } from '../supabase/functions/_shared/checkout-quote.ts';
 import { deriveCheckoutQuote } from '../src/services/lib/checkout-quote.js';
+import { RATES, calculateEstimate } from '../src/services/lib/diving-calculator.js';
 
 const PRICING = {
   minimum_service_charge: 150,
@@ -70,7 +72,7 @@ describe('calculateCanonicalQuote', () => {
       serviceInterval: 'one-time',
       boatLength: '0',
       serviceDetails: {},
-    }, PRICING)).toEqual({ mode: 'exact', amountCents: 19900 });
+    }, PRICING)).toEqual({ mode: 'exact', amountCents: 14900 });
 
     expect(calculateCanonicalQuote({
       service: 'Propeller Service',
@@ -291,5 +293,38 @@ describe('browser/server cleaning parity', () => {
         deriveCheckoutQuote(browser),
       );
     }
+  });
+});
+
+describe('item recovery price parity ($149)', () => {
+  const SERVER_ITEM_RECOVERY = {
+    service: 'Item Recovery',
+    serviceInterval: 'one-time',
+    boatLength: '0',
+    serviceDetails: {},
+  };
+
+  it('pins the server standalone rate to the browser calculator rate', () => {
+    expect(SHIPPED_STANDALONE_RATES.itemRecovery).toBe(RATES.itemRecovery);
+    expect(SHIPPED_STANDALONE_RATES.propellerService).toBe(RATES.propellerService);
+    expect(SHIPPED_STANDALONE_RATES.underwaterInspection).toBe(RATES.inspection);
+  });
+
+  it('client total == client checkout quote == server quote == $149', () => {
+    const est = calculateEstimate({ serviceKey: 'item_recovery' });
+    expect(est.total).toBe(149);
+    expect(est.items.reduce((sum, item) => sum + item.amount, 0)).toBe(est.total);
+
+    const clientQuote = deriveCheckoutQuote({ serviceKey: 'item_recovery' });
+    expect(clientQuote).toEqual({ mode: 'exact', amountCents: est.total * 100 });
+
+    // Server ignores the stale legacy item_recovery_rate row (200) and an empty config alike.
+    expect(calculateCanonicalQuote(SERVER_ITEM_RECOVERY, PRICING)).toEqual(clientQuote);
+    expect(calculateCanonicalQuote(SERVER_ITEM_RECOVERY, {})).toEqual({ mode: 'exact', amountCents: 14900 });
+  });
+
+  it('rejects a stale $199 submission for item recovery', () => {
+    const canonical = calculateCanonicalQuote(SERVER_ITEM_RECOVERY, PRICING);
+    expect(quotesEqual({ mode: 'exact', amountCents: 19900 }, canonical)).toBe(false);
   });
 });

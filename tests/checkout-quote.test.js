@@ -54,7 +54,7 @@ describe('deriveCheckoutQuote', () => {
   it('keeps flat-rate services exact', () => {
     expect(deriveCheckoutQuote({ serviceKey: 'item_recovery' })).toEqual({
       mode: 'exact',
-      amountCents: 19900,
+      amountCents: 14900,
     });
   });
 });
