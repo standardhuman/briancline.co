@@ -166,7 +166,7 @@ const FAQS = [
   },
   {
     q: "I dropped something in the water. Can you retrieve it?",
-    a: "Happy to help! Off-schedule retrievals require booking as a one-time service. For regular clients, items retrieved during scheduled service incur no extra charge. Important: don't disturb the bottom before your diver arrives. We can't guarantee successful or undamaged retrieval, but if we can't find the item in the first 20 minutes, we'll search another 20 at no additional charge.",
+    a: "Happy to help! Off-schedule retrievals require booking as a one-time service. For regular clients, items retrieved during scheduled service incur no extra charge. Important: don't disturb the bottom before your diver arrives. We'll search for up to 45 minutes, but we can't guarantee successful or undamaged retrieval.",
   },
   {
     q: "Do you offer a referral program?",

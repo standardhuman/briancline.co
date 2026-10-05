@@ -259,6 +259,7 @@ describe('Item Recovery', () => {
     expect(est.fouling).toBeNull();
     expect(est.startingPrice).toBe(true);
     expect(SERVICES.item_recovery.description).toContain('from $149');
+    expect(SERVICES.item_recovery.description).toContain('Up to 45 min search');
   });
 
   it('should ignore all other parameters', () => {

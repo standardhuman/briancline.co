@@ -27,7 +27,7 @@ export const SERVICES = {
     key: "item_recovery",
     name: "Item Recovery",
     type: "flat",
-    description: "Basic recovery of a lost item such as a phone or tool, from $149. Includes a 20-minute search, plus another 20 minutes at no extra charge. Very small items (rings, watches), very large items, or multiple items are quoted by the job.",
+    description: "Basic recovery of a lost item such as a phone or tool, from $149. Up to 45 min search. Very small items (rings, watches), very large items, or multiple items are quoted by the job.",
   },
   propeller_service: {
     key: "propeller_service",
