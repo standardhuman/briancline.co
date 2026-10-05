@@ -9,8 +9,8 @@ export default function RecurringAuthorization() {
   return (
     <div className="min-h-screen bg-white">
       <PageMeta
-        title="Recurring Charge Authorization — SailorSkills"
-        description="Authorization terms for recurring (saved-card) charges. Frequency, amount, notification, cancellation, and dispute rights."
+        title="Recurring Charge Authorization | Brian Cline Diving & Hull Cleaning"
+        description="Recurring charge authorization for Brian Cline Diving & Hull Cleaning service plans. Schedule, amount, when you are charged, how to cancel, and charge questions."
       />
       <div className="max-w-3xl mx-auto px-6 py-12">
         <p className="text-sm text-gray-500">
