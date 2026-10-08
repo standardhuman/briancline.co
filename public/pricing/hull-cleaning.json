@@ -1,0 +1,442 @@
+{
+  "name": "Hull cleaning and dive services",
+  "provider": "Brian Cline Diving & Hull Cleaning",
+  "page": "https://briancline.co/hull-cleaning",
+  "order": "https://briancline.co/hull-cleaning/order",
+  "quoteApi": {
+    "url": "https://briancline.co/api/hull-cleaning-quote",
+    "method": "GET",
+    "parameters": {
+      "service": {
+        "values": [
+          "cleaning",
+          "running_gear",
+          "underwater_inspection",
+          "item_recovery",
+          "propeller_service",
+          "anodes_only"
+        ],
+        "default": "cleaning"
+      },
+      "length": {
+        "description": "Boat length in feet, from the model name (e.g. Islander 36 = 36)",
+        "min": 1,
+        "max": 200
+      },
+      "boatType": {
+        "values": [
+          "sailboat",
+          "powerboat"
+        ],
+        "default": "sailboat"
+      },
+      "hull": {
+        "values": [
+          "monohull",
+          "catamaran",
+          "trimaran"
+        ],
+        "default": "monohull"
+      },
+      "frequency": {
+        "values": [
+          "monthly",
+          "bimonthly",
+          "quarterly",
+          "onetime"
+        ],
+        "default": "monthly"
+      },
+      "propellers": {
+        "min": 1,
+        "max": 4,
+        "default": 1
+      },
+      "anodes": {
+        "min": 0,
+        "max": 10,
+        "default": 0
+      },
+      "paintAge": {
+        "values": [
+          "<6mo",
+          "6-12mo",
+          "1-1.5yr",
+          "1.5-2yr",
+          "2+yr"
+        ],
+        "description": "Age of the antifouling paint. Omit if unknown."
+      },
+      "lastCleaned": {
+        "values": [
+          "<2",
+          "2-4",
+          "5-6",
+          "7-8",
+          "9-12",
+          "13-24",
+          "24+"
+        ],
+        "description": "Time since the last cleaning. Omit if unknown."
+      }
+    },
+    "example": "https://briancline.co/api/hull-cleaning-quote?service=cleaning&length=35&frequency=monthly&paintAge=1-1.5yr&lastCleaned=2-4"
+  },
+  "currency": "USD",
+  "serviceArea": {
+    "marinas": [
+      "Berkeley Marina, Berkeley, California"
+    ],
+    "note": "Currently serving Berkeley Marina only. For boats at other Bay Area marinas, email diving@briancline.co for a referral to a trusted dive professional."
+  },
+  "minimumCharge": {
+    "amount": 150,
+    "appliesTo": [
+      "cleaning",
+      "running_gear",
+      "underwater_inspection",
+      "anodes_only"
+    ]
+  },
+  "services": [
+    {
+      "key": "cleaning",
+      "name": "Cleaning & Anodes",
+      "description": "Hull cleaning with anode inspection.",
+      "pricing": {
+        "type": "per_foot",
+        "recurringPerFoot": 4.5,
+        "oneTimePerFoot": 6,
+        "recurringFrequencies": [
+          "monthly",
+          "bimonthly",
+          "quarterly"
+        ]
+      },
+      "appliesSurcharges": true,
+      "appliesGrowth": true
+    },
+    {
+      "key": "running_gear",
+      "name": "Running Gear & Anodes",
+      "description": "Props, shafts, struts and trim tabs cleaned, anodes serviced, thru-hulls checked. No broad hull clean.",
+      "pricing": {
+        "type": "per_foot",
+        "fractionOfCleaning": 0.7,
+        "note": "Bills 70% of the full-clean price, including its surcharges and growth. Anode labor is not discounted."
+      },
+      "appliesSurcharges": true,
+      "appliesGrowth": true
+    },
+    {
+      "key": "underwater_inspection",
+      "name": "Underwater Inspection",
+      "description": "Photo/video documentation for insurance, surveys, or damage assessment.",
+      "pricing": {
+        "type": "per_foot",
+        "perFoot": 3.99,
+        "oneTimeOnly": true
+      },
+      "appliesSurcharges": true,
+      "appliesGrowth": false
+    },
+    {
+      "key": "item_recovery",
+      "name": "Item Recovery",
+      "description": "Basic recovery of a lost item such as a phone or tool, from $149. Up to 45 min search. Very small items (rings, watches), very large items, or multiple items are quoted by the job.",
+      "pricing": {
+        "type": "flat",
+        "from": 149
+      }
+    },
+    {
+      "key": "propeller_service",
+      "name": "Propeller Service",
+      "description": "Professional propeller removal or installation.",
+      "pricing": {
+        "type": "flat",
+        "perPropeller": 349
+      }
+    },
+    {
+      "key": "anodes_only",
+      "name": "Anodes Only",
+      "description": "Anode inspection and replacement only.",
+      "pricing": {
+        "type": "per_anode",
+        "perAnode": 15,
+        "minimumCharge": 150
+      }
+    }
+  ],
+  "surcharges": {
+    "description": "Percentages of the base (rate × length).",
+    "boatAndHull": {
+      "appliesTo": [
+        "cleaning",
+        "running_gear",
+        "underwater_inspection"
+      ],
+      "powerboat": 0.25,
+      "catamaran": 0.25,
+      "trimaran": 0.5
+    },
+    "eachAdditionalPropeller": {
+      "appliesTo": [
+        "cleaning",
+        "running_gear"
+      ],
+      "surcharge": 0.1
+    }
+  },
+  "anodeLaborPerAnode": 15,
+  "growth": {
+    "appliesTo": [
+      "cleaning",
+      "running_gear"
+    ],
+    "description": "A growth surcharge, as a percentage of the base, set by paint age and time since the last cleaning. The customer-facing tiers are a simplified view; the matrix holds the exact values.",
+    "tiers": [
+      {
+        "label": "Light",
+        "surcharge": 0
+      },
+      {
+        "label": "Moderate",
+        "surcharge": 0
+      },
+      {
+        "label": "Heavy",
+        "surcharge": 0.5
+      },
+      {
+        "label": "Severe",
+        "surcharge": 1
+      }
+    ],
+    "matrix": {
+      "rows": "lastCleaned",
+      "columns": "paintAge",
+      "paintAge": [
+        {
+          "value": "<6mo",
+          "label": "< 6 months"
+        },
+        {
+          "value": "6-12mo",
+          "label": "6–12 months"
+        },
+        {
+          "value": "1-1.5yr",
+          "label": "1–1.5 years"
+        },
+        {
+          "value": "1.5-2yr",
+          "label": "1.5–2 years"
+        },
+        {
+          "value": "2+yr",
+          "label": "2+ years"
+        }
+      ],
+      "lastCleaned": [
+        {
+          "value": "<2",
+          "label": "< 2 months"
+        },
+        {
+          "value": "2-4",
+          "label": "2–4 months"
+        },
+        {
+          "value": "5-6",
+          "label": "5–6 months"
+        },
+        {
+          "value": "7-8",
+          "label": "7–8 months"
+        },
+        {
+          "value": "9-12",
+          "label": "9–12 months"
+        },
+        {
+          "value": "13-24",
+          "label": "1–2 years"
+        },
+        {
+          "value": "24+",
+          "label": "2+ years"
+        }
+      ],
+      "cells": [
+        [
+          {
+            "level": "Minimal",
+            "surcharge": 0
+          },
+          {
+            "level": "Minimal",
+            "surcharge": 0
+          },
+          {
+            "level": "Minimal",
+            "surcharge": 0
+          },
+          {
+            "level": "Moderate",
+            "surcharge": 0
+          },
+          {
+            "level": "Moderate-Heavy",
+            "surcharge": 0.375
+          }
+        ],
+        [
+          {
+            "level": "Minimal",
+            "surcharge": 0
+          },
+          {
+            "level": "Minimal-Moderate",
+            "surcharge": 0
+          },
+          {
+            "level": "Minimal-Moderate",
+            "surcharge": 0
+          },
+          {
+            "level": "Moderate",
+            "surcharge": 0
+          },
+          {
+            "level": "Moderate-Heavy",
+            "surcharge": 0.375
+          }
+        ],
+        [
+          {
+            "level": "Moderate",
+            "surcharge": 0
+          },
+          {
+            "level": "Moderate",
+            "surcharge": 0
+          },
+          {
+            "level": "Moderate",
+            "surcharge": 0
+          },
+          {
+            "level": "Moderate-Heavy",
+            "surcharge": 0.375
+          },
+          {
+            "level": "Heavy",
+            "surcharge": 0.5
+          }
+        ],
+        [
+          {
+            "level": "Moderate-Heavy",
+            "surcharge": 0.375
+          },
+          {
+            "level": "Moderate-Heavy",
+            "surcharge": 0.375
+          },
+          {
+            "level": "Moderate-Heavy",
+            "surcharge": 0.375
+          },
+          {
+            "level": "Heavy",
+            "surcharge": 0.5
+          },
+          {
+            "level": "Heavy-Severe",
+            "surcharge": 0.75
+          }
+        ],
+        [
+          {
+            "level": "Heavy",
+            "surcharge": 0.5
+          },
+          {
+            "level": "Heavy",
+            "surcharge": 0.5
+          },
+          {
+            "level": "Heavy",
+            "surcharge": 0.5
+          },
+          {
+            "level": "Heavy-Severe",
+            "surcharge": 0.75
+          },
+          {
+            "level": "Severe (Maximum)",
+            "surcharge": 2
+          }
+        ],
+        [
+          {
+            "level": "Heavy-Severe",
+            "surcharge": 0.75
+          },
+          {
+            "level": "Heavy-Severe",
+            "surcharge": 0.75
+          },
+          {
+            "level": "Heavy-Severe",
+            "surcharge": 0.75
+          },
+          {
+            "level": "Severe",
+            "surcharge": 1
+          },
+          {
+            "level": "Severe (Maximum)",
+            "surcharge": 2
+          }
+        ],
+        [
+          {
+            "level": "Severe",
+            "surcharge": 1
+          },
+          {
+            "level": "Severe",
+            "surcharge": 1
+          },
+          {
+            "level": "Severe",
+            "surcharge": 1
+          },
+          {
+            "level": "Severe",
+            "surcharge": 1
+          },
+          {
+            "level": "Severe (Maximum)",
+            "surcharge": 2
+          }
+        ]
+      ]
+    }
+  },
+  "promotion": {
+    "code": "WELCOME26",
+    "description": "$75 off your first cleaning, on one-time or recurring plans. Once per customer.",
+    "amountOff": 75,
+    "currency": "USD",
+    "terms": "Subject to change. Enter the code at checkout, where the current terms are applied."
+  },
+  "notes": [
+    "This is an estimate. The final price depends on the marine growth found at service time, so the billed amount may vary from the estimate.",
+    "Anode installation is $15 per anode in labor. Anode parts are extra: bring your own, or they are supplied at roughly chandlery prices plus tax.",
+    "Hull cleaning covers the antifouling paint up to the paint line; gel coat and unpainted surfaces are not scrubbed."
+  ]
+}

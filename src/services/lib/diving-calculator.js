@@ -629,3 +629,8 @@ export function conditionDisplayRows(tiers) {
 }
 
 export { RATES };
+
+// Read-only views of the rate card for the public pricing summary and quote API
+// (hull-cleaning-public.js). Exported so those surfaces derive every number from
+// this module instead of copying it.
+export { SURCHARGES, RUNNING_GEAR_MULTIPLIER, SEVERITY, MATRIX, PAINT_COLS };
