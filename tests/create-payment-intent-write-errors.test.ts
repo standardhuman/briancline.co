@@ -49,7 +49,8 @@ describe('create-payment-intent checkout write error handling', () => {
       'customers',
       'addresses',
       'boats',
-      'marinas',
+      // marinas is no longer written on checkout (read-only lookup; see
+      // create-payment-intent-marina-link.test.ts).
       'service_schedules',
       'customer_services',
       'service_orders',
@@ -67,9 +68,9 @@ describe('create-payment-intent checkout write error handling', () => {
   });
 
   it('falls back to the customer email for writes that precede the order number', () => {
-    // customers / addresses / boats / marinas are written before the order row,
-    // so there is no order number yet — the email is the identifying reference.
-    for (const table of ['customers', 'addresses', 'boats', 'marinas']) {
+    // customers / addresses / boats are written before the order row, so there
+    // is no order number yet — the email is the identifying reference.
+    for (const table of ['customers', 'addresses', 'boats']) {
       expect(source).toContain(`logCheckoutWriteFailure('${table}', \`email:\${formData.customerEmail}\``);
     }
     // And the order number genuinely is generated after them.
