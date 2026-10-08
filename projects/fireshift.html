@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="FireShift - Mobile-first shift management for Burning Man Perimeter operations with offline-first architecture and voice commands.">
+  <meta name="description" content="FireShift builds the watch schedule for the Burning Man Perimeter Department: shift leads rate every shift, an optimizer builds a fair, fully covered schedule, and admins review, publish and share it.">
   <title>FireShift | Brian Cline</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,256 +30,56 @@
   <!-- Hero -->
   <section class="pt-32 pb-16">
     <div class="max-w-4xl mx-auto px-6">
-      <span class="text-xs text-gray-400 font-medium uppercase tracking-wider">Open Source</span>
+      <span class="text-xs text-gray-400 font-medium uppercase tracking-wider">Tools</span>
       <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mt-2 mb-4">FireShift</h1>
       <p class="text-xl text-gray-600 max-w-2xl">
-        Mobile-first shift management for Burning Man Perimeter operations, featuring offline-first architecture, OCR schedule import, and voice commands for hands-free updates in the dust.
+        Builds the watch schedule for the Burning Man Perimeter Department. Shift leads rate every watch shift, an optimizer builds a fair, fully covered schedule, and admins review, publish and share it.
       </p>
+      <p class="mt-6 text-gray-500">
+        Used to build the 2026 schedule. Its sibling app, <a href="/projects/perimeter-supervisor" class="text-gray-900 font-medium hover:underline">Perimeter Supervisor</a>, runs the shifts themselves.
+      </p>
+      <a href="https://fireshift.briancline.co" target="_blank" rel="noopener" class="mt-6 inline-flex items-center text-gray-900 font-medium hover:underline">
+        Open FireShift (sign-in required)
+        <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+      </a>
     </div>
   </section>
 
-  <!-- Features -->
+  <!-- How it works -->
   <section class="py-12 bg-gray-50">
     <div class="max-w-4xl mx-auto px-6">
-      <h2 class="text-2xl font-bold text-gray-900 mb-8">Features</h2>
-
-      <div class="grid md:grid-cols-2 gap-8">
-        <!-- Mobile App -->
-        <div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Mobile App</h3>
-          <ul class="space-y-3 text-gray-600">
-            <li class="flex items-start">
-              <span class="mr-3">📱</span>
-              <span>Offline-first with WatermelonDB - works in the desert</span>
-            </li>
-            <li class="flex items-start">
-              <span class="mr-3">📸</span>
-              <span>OCR schedule import from photos of paper schedules</span>
-            </li>
-            <li class="flex items-start">
-              <span class="mr-3">🎤</span>
-              <span>Voice commands for hands-free shift updates</span>
-            </li>
-            <li class="flex items-start">
-              <span class="mr-3">🚛</span>
-              <span>Real-time truck location tracking</span>
-            </li>
-            <li class="flex items-start">
-              <span class="mr-3">👥</span>
-              <span>Volunteer assignment management</span>
-            </li>
-            <li class="flex items-start">
-              <span class="mr-3">🔄</span>
-              <span>Automatic sync when connected</span>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Web Dashboard -->
-        <div>
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Web Dashboard</h3>
-          <ul class="space-y-3 text-gray-600">
-            <li class="flex items-start">
-              <span class="mr-3">📊</span>
-              <span>Real-time analytics and reporting</span>
-            </li>
-            <li class="flex items-start">
-              <span class="mr-3">👨‍💼</span>
-              <span>Administrative oversight tools</span>
-            </li>
-            <li class="flex items-start">
-              <span class="mr-3">📈</span>
-              <span>Performance metrics tracking</span>
-            </li>
-            <li class="flex items-start">
-              <span class="mr-3">📄</span>
-              <span>PDF report generation</span>
-            </li>
-            <li class="flex items-start">
-              <span class="mr-3">🔐</span>
-              <span>Secure authentication</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Voice Commands -->
-  <section class="py-12">
-    <div class="max-w-4xl mx-auto px-6">
-      <h2 class="text-2xl font-bold text-gray-900 mb-4">Voice Commands</h2>
-      <p class="text-gray-600 mb-6">Natural language commands for hands-free operation when you're covered in dust:</p>
-
-      <div class="bg-gray-900 rounded-xl p-6 font-mono text-sm">
-        <div class="text-gray-400 mb-2"># Assign volunteers to trucks</div>
-        <div class="text-green-400 mb-4">"Marty is driver, Squeaks is rider in truck 3"</div>
-
-        <div class="text-gray-400 mb-2"># Update truck locations</div>
-        <div class="text-green-400 mb-4">"Truck 2 is at P5"</div>
-
-        <div class="text-gray-400 mb-2"># Track meal preferences</div>
-        <div class="text-green-400 mb-4">"Nebula eats veggie"</div>
-
-        <div class="text-gray-400 mb-2"># Mark meals served</div>
-        <div class="text-green-400 mb-4">"Half Deaf has eaten"</div>
-
-        <div class="text-gray-400 mb-2"># Add notes</div>
-        <div class="text-green-400">"Note: Great teamwork today"</div>
-      </div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-8">How it works</h2>
+      <ol class="space-y-5 text-gray-600">
+        <li class="flex gap-4"><span class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-semibold flex items-center justify-center">1</span><div><strong class="text-gray-900">Set up the year.</strong> The event window is worked out from Labor Day, and the grid of dates and shift types (Grave, Morning, Noon, Swing) is generated.</div></li>
+        <li class="flex gap-4"><span class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-semibold flex items-center justify-center">2</span><div><strong class="text-gray-900">Roster the leads.</strong> Each lead, by playa name, with their shift obligations and the dates they're on contract.</div></li>
+        <li class="flex gap-4"><span class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-semibold flex items-center justify-center">3</span><div><strong class="text-gray-900">Collect preferences.</strong> Every lead rates every shift from 0 (not available) to 3 (preferred).</div></li>
+        <li class="flex gap-4"><span class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-semibold flex items-center justify-center">4</span><div><strong class="text-gray-900">Generate.</strong> The optimizer fills every slot while honoring availability, slot counts and shift limits, avoids choppy on-off-on stretches, and maximizes how well the schedule fits everyone's preferences.</div></li>
+        <li class="flex gap-4"><span class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-semibold flex items-center justify-center">5</span><div><strong class="text-gray-900">Review and publish.</strong> Compare candidate schedules, reassign by hand, then publish one.</div></li>
+        <li class="flex gap-4"><span class="flex-shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-sm font-semibold flex items-center justify-center">6</span><div><strong class="text-gray-900">Share it.</strong> A published view each lead can filter to their own shifts, CSV and calendar exports, and reports on coverage, fit, preference completion and hard-to-fill shifts.</div></li>
+      </ol>
+      <p class="mt-6 text-sm text-gray-500">Draft schedules kept in Google Sheets can be imported, so the department's existing workflow carries over.</p>
     </div>
   </section>
 
   <!-- Tech Stack -->
-  <section class="py-12 bg-gray-50">
+  <section class="py-12">
     <div class="max-w-4xl mx-auto px-6">
-      <h2 class="text-2xl font-bold text-gray-900 mb-8">Tech Stack</h2>
-
+      <h2 class="text-2xl font-bold text-gray-900 mb-8">Tech stack</h2>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-white rounded-lg p-4 border border-gray-200">
-          <div class="font-semibold text-gray-900">React Native</div>
-          <div class="text-sm text-gray-500">Mobile App</div>
-        </div>
-        <div class="bg-white rounded-lg p-4 border border-gray-200">
-          <div class="font-semibold text-gray-900">Expo</div>
-          <div class="text-sm text-gray-500">Build & Deploy</div>
-        </div>
-        <div class="bg-white rounded-lg p-4 border border-gray-200">
-          <div class="font-semibold text-gray-900">Next.js</div>
-          <div class="text-sm text-gray-500">Web Dashboard</div>
-        </div>
-        <div class="bg-white rounded-lg p-4 border border-gray-200">
-          <div class="font-semibold text-gray-900">Supabase</div>
-          <div class="text-sm text-gray-500">Backend & Auth</div>
-        </div>
-        <div class="bg-white rounded-lg p-4 border border-gray-200">
-          <div class="font-semibold text-gray-900">WatermelonDB</div>
-          <div class="text-sm text-gray-500">Offline Storage</div>
-        </div>
-        <div class="bg-white rounded-lg p-4 border border-gray-200">
-          <div class="font-semibold text-gray-900">TypeScript</div>
-          <div class="text-sm text-gray-500">Type Safety</div>
-        </div>
-        <div class="bg-white rounded-lg p-4 border border-gray-200">
-          <div class="font-semibold text-gray-900">ML Kit</div>
-          <div class="text-sm text-gray-500">OCR</div>
-        </div>
-        <div class="bg-white rounded-lg p-4 border border-gray-200">
-          <div class="font-semibold text-gray-900">Vercel</div>
-          <div class="text-sm text-gray-500">Hosting</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Architecture -->
-  <section class="py-12">
-    <div class="max-w-4xl mx-auto px-6">
-      <h2 class="text-2xl font-bold text-gray-900 mb-4">Architecture</h2>
-      <p class="text-gray-600 mb-6">Monorepo structure with shared packages:</p>
-
-      <div class="bg-gray-900 rounded-xl p-6 font-mono text-sm text-gray-300">
-        <div>burning-man-perimeter/</div>
-        <div class="ml-4">├── apps/</div>
-        <div class="ml-8">├── mobile/ <span class="text-gray-500"># React Native mobile app</span></div>
-        <div class="ml-8">└── web/ <span class="text-gray-500"># Next.js admin dashboard</span></div>
-        <div class="ml-4">├── packages/</div>
-        <div class="ml-8">├── shared/ <span class="text-gray-500"># Shared types and utilities</span></div>
-        <div class="ml-8">└── database/ <span class="text-gray-500"># Database schemas</span></div>
-        <div class="ml-4">└── supabase/ <span class="text-gray-500"># Migrations and config</span></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Status -->
-  <section class="py-12 bg-gray-50">
-    <div class="max-w-4xl mx-auto px-6">
-      <h2 class="text-2xl font-bold text-gray-900 mb-6">Project Status</h2>
-
-      <div class="mb-6">
-        <div class="flex justify-between text-sm mb-2">
-          <span class="font-medium text-gray-900">Overall Progress</span>
-          <span class="text-gray-600">65%</span>
-        </div>
-        <div class="h-3 bg-gray-200 rounded-full overflow-hidden">
-          <div class="h-full bg-gray-900 rounded-full" style="width: 65%"></div>
-        </div>
-      </div>
-
-      <div class="space-y-3">
-        <div class="flex items-center">
-          <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-sm mr-3">✓</span>
-          <span class="text-gray-700">Core offline-first architecture complete</span>
-        </div>
-        <div class="flex items-center">
-          <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-sm mr-3">✓</span>
-          <span class="text-gray-700">Schedule integration working (95%)</span>
-        </div>
-        <div class="flex items-center">
-          <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-sm mr-3">✓</span>
-          <span class="text-gray-700">Basic UI and navigation implemented</span>
-        </div>
-        <div class="flex items-center">
-          <span class="w-6 h-6 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center text-sm mr-3">○</span>
-          <span class="text-gray-700">Voice commands and OCR (framework ready)</span>
-        </div>
-        <div class="flex items-center">
-          <span class="w-6 h-6 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center text-sm mr-3">○</span>
-          <span class="text-gray-500">Authentication system</span>
-        </div>
-        <div class="flex items-center">
-          <span class="w-6 h-6 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center text-sm mr-3">○</span>
-          <span class="text-gray-500">Web dashboard expansion</span>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Development Feed -->
-  <section class="py-12">
-    <div class="max-w-4xl mx-auto px-6">
-      <div class="mb-8">
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">Built in the Open</h2>
-        <p class="text-gray-600 mb-6">
-          Watch FireShift evolve in real-time. Every feature, improvement, and fix, translated into plain English.
-        </p>
-        <div class="flex gap-8 text-sm">
-          <div>
-            <span id="fireshift-total-updates" class="text-2xl font-bold text-gray-900">-</span>
-            <span class="text-gray-500 block">Recent Updates</span>
-          </div>
-          <div>
-            <span class="text-2xl font-bold text-gray-900">5</span>
-            <span class="text-gray-500 block">Product Areas</span>
-          </div>
-          <div>
-            <span class="text-2xl font-bold text-gray-900">3x</span>
-            <span class="text-gray-500 block">Weekly Updates</span>
-          </div>
-        </div>
-      </div>
-
-      <div id="fireshift-feed">
-        <!-- Feed loads here via JS -->
-      </div>
-
-      <div class="mt-8 pt-6 border-t border-gray-200">
-        <p class="text-sm text-gray-500">
-          Want to contribute? FireShift is open source.
-          <a href="https://github.com/standardhuman/fireshift" target="_blank" rel="noopener" class="text-gray-900 font-medium hover:underline">View on GitHub</a>
-        </p>
+        <div class="bg-white rounded-lg p-4 border border-gray-200"><div class="font-semibold text-gray-900">Next.js</div><div class="text-sm text-gray-500">Web app</div></div>
+        <div class="bg-white rounded-lg p-4 border border-gray-200"><div class="font-semibold text-gray-900">TypeScript</div><div class="text-sm text-gray-500">Scheduling engine</div></div>
+        <div class="bg-white rounded-lg p-4 border border-gray-200"><div class="font-semibold text-gray-900">Supabase</div><div class="text-sm text-gray-500">Database and sign-in</div></div>
+        <div class="bg-white rounded-lg p-4 border border-gray-200"><div class="font-semibold text-gray-900">Vercel</div><div class="text-sm text-gray-500">Hosting</div></div>
       </div>
     </div>
   </section>
 
   <!-- Context -->
-  <section class="py-12">
+  <section class="py-12 bg-gray-50">
     <div class="max-w-4xl mx-auto px-6">
-      <h2 class="text-2xl font-bold text-gray-900 mb-4">Why This Exists</h2>
+      <h2 class="text-2xl font-bold text-gray-900 mb-4">Why this exists</h2>
       <p class="text-gray-600 leading-relaxed">
-        Built for the Burning Man Perimeter team - the volunteers who patrol the 7-mile perimeter of Black Rock City.
-        Managing 100+ volunteers across multiple shifts, trucks, and locations in an environment with no cell service
-        requires tools that work offline-first. Paper schedules get dusty and lost; this app survives the playa.
+        The Perimeter Department, part of Gate, Perimeter &amp; Exodus, keeps watch around Black Rock City around the clock. Building that rotation by hand in a spreadsheet is slow, and keeping it fair to everyone is hard. FireShift turns everyone's preferences into a schedule the leads can trust, then gets it into their hands.
       </p>
     </div>
   </section>
@@ -295,6 +95,5 @@
   </footer>
 
   <script type="module" src="/src/main.js"></script>
-  <script type="module" src="/src/components/fireshiftFeed.js"></script>
 </body>
 </html>
