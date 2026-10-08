@@ -10,6 +10,8 @@ import PageMeta from "../components/PageMeta";
 import JsonLd from "../components/JsonLd";
 import OptImage from "../components/OptImage";
 import ConditionsPricing from "../components/ConditionsPricing";
+import HowPricingWorks from "../components/HowPricingWorks";
+import { PRICING_JSON_URL } from "../lib/hull-cleaning-public";
 import {
   Ruler, Ship, Sailboat, CalendarDays, Paintbrush, Clock, Wrench,
   Calculator, ListChecks, CheckCircle2, HelpCircle, ArrowRight, Info, Anchor,
@@ -376,7 +378,24 @@ export default function Diving() {
         "provider": { "@id": "https://briancline.co/#vessel-management" },
         "areaServed": { "@type": "Place", "name": "Berkeley Marina, Berkeley, California" },
         "serviceType": "Hull Cleaning",
-        "url": "https://briancline.co/hull-cleaning"
+        "url": "https://briancline.co/hull-cleaning",
+        "subjectOf": { "@type": "DataDownload", "encodingFormat": "application/json", "contentUrl": PRICING_JSON_URL },
+        "offers": [
+          ["Recurring hull cleaning (monthly, every 2 months or quarterly)", RATES.recurring],
+          ["One-time hull cleaning", RATES.onetime],
+          ["Underwater inspection", RATES.inspection],
+        ].map(([name, price]) => ({
+          "@type": "Offer",
+          "name": name,
+          "priceCurrency": "USD",
+          "priceSpecification": {
+            "@type": "UnitPriceSpecification",
+            "price": price,
+            "priceCurrency": "USD",
+            "unitText": "per foot of boat length",
+          },
+          "areaServed": { "@type": "Place", "name": "Berkeley Marina, Berkeley, California" },
+        })),
       }} />
       <JsonLd data={{
         "@context": "https://schema.org",
@@ -700,6 +719,8 @@ export default function Diving() {
             </Card>
 
           </div>
+
+          <HowPricingWorks />
 
           {/* FAQ — full width */}
           <Card className="p-6">
