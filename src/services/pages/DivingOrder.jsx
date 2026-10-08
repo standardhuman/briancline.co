@@ -993,7 +993,7 @@ function OrderForm({ searchParams, navigate }) {
           <div className="mt-4">
             <Field label="Promo Code">
               <Input
-                placeholder="WELCOME26"
+                placeholder="Enter code"
                 value={form.promoCode}
                 onChange={(e) => {
                   updateField("promoCode", e.target.value);
