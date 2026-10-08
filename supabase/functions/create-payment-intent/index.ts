@@ -25,6 +25,7 @@ import {
   type PromoApplied,
 } from '../_shared/service-promo.ts'
 import { resolveSecretKey } from '../_shared/supabase-keys.ts'
+import { resolveMarina, type MarinaLookup } from '../_shared/marina-match.ts'
 
 const stripeMode = Deno.env.get('STRIPE_MODE') || 'test'
 const stripeSecretKey = stripeMode === 'live'
@@ -167,6 +168,32 @@ function providerOwnerLookup(supabase: any): ProviderOwnerLookup {
         .not('owner_user_id', 'is', null).limit(2)
       if (error) throw error
       return uniqueOwner(data)
+    },
+  }
+}
+
+// Read-only lookups for marina resolution (see _shared/marina-match.ts). Checkout
+// never writes the marinas table: a customer's free text must not mint rows.
+function marinaLookup(supabase: any): MarinaLookup {
+  return {
+    async findProviderId(ownerUserId: string): Promise<string | null> {
+      const { data, error } = await supabase
+        .from('service_providers').select('id').eq('owner_user_id', ownerUserId).limit(2)
+      if (error) throw error
+      return data?.length === 1 ? data[0].id : null
+    },
+    async findCandidates(providerId: string, pattern: string) {
+      const { data, error } = await supabase
+        .from('marinas').select('id, name, is_allowed, created_at')
+        .eq('provider_id', providerId).ilike('name', pattern).limit(50)
+      if (error) throw error
+      return data || []
+    },
+    async countBoats(marinaId: string): Promise<number> {
+      const { count, error } = await supabase
+        .from('boats').select('id', { count: 'exact', head: true }).eq('marina_id', marinaId)
+      if (error) throw error
+      return count ?? 0
     },
   }
 }
@@ -371,6 +398,26 @@ serve(async (req) => {
       if (addressError) logCheckoutWriteFailure('addresses', `email:${formData.customerEmail}`, addressError)
     }
 
+    // Link the order to an EXISTING marinas row (provider-scoped, case/space-
+    // insensitive). Never create one from customer text: on no match marina_id
+    // stays NULL, the free-text boats.marina is kept, and we warn so the marina
+    // can be added in Pro and the boat linked. A lookup error is non-fatal.
+    let marinaId: string | null = null
+    if (formData.service !== 'Item Recovery' && formData.marinaName && formData.marinaName !== 'See recovery location') {
+      try {
+        const marinaMatch = await resolveMarina(marinaLookup(supabase), {
+          marinaName: formData.marinaName, providerOwnerUserId,
+        })
+        if (marinaMatch.source === 'match') {
+          marinaId = marinaMatch.marinaId
+        } else {
+          console.warn(`[checkout-marina-unlinked] reason=${marinaMatch.source} marina=${JSON.stringify(formData.marinaName)} ref=email:${formData.customerEmail} — marina_id left NULL, free text kept`)
+        }
+      } catch (e) {
+        console.warn(`[checkout-marina-unlinked] reason=lookup_error marina=${JSON.stringify(formData.marinaName)} ref=email:${formData.customerEmail}:`, e)
+      }
+    }
+
     let boat = null
     if (formData.service !== 'Item Recovery') {
       const boatData: any = {
@@ -385,6 +432,9 @@ serve(async (req) => {
         length: parseInt(String(formData.boatLength || '0'), 10) || 0, marina: formData.marinaName || null,
         dock: formData.dock || null, slip: formData.slipNumber || null, is_active: true,
       }
+      // Only set marina_id when resolved, so an unmatched name never clears a
+      // link Pro already made on an existing boat.
+      if (marinaId) boatData.marina_id = marinaId
       if (formData.serviceDetails) {
         if (formData.serviceDetails.boatType) boatData.type = formData.serviceDetails.boatType
         if (formData.serviceDetails.hullType) boatData.hull_type = formData.serviceDetails.hullType
@@ -415,6 +465,15 @@ serve(async (req) => {
         }
         if (row) { existingBoat = row; break }
       }
+      // Pro charges resolve the Stripe customer from boats.stripe_customer_id; a
+      // boat without it gets a twin Stripe customer at first charge. Stamp it on a
+      // new boat, or an existing boat that has none. Never overwrite a different
+      // existing id (it may be the customer's real, card-on-file record).
+      if (!existingBoat?.stripe_customer_id) {
+        boatData.stripe_customer_id = stripeCustomer.id
+      } else if (existingBoat.stripe_customer_id !== stripeCustomer.id) {
+        console.warn(`[checkout-boat-stripe-mismatch] boat=${existingBoat.id} boat_stripe=${existingBoat.stripe_customer_id} checkout_stripe=${stripeCustomer.id} — boat id kept`)
+      }
       if (existingBoat) {
         const { data: updatedBoat, error: boatError } = await supabase.from('boats')
           .update(boatData).eq('id', existingBoat.id).select().single()
@@ -428,21 +487,13 @@ serve(async (req) => {
       }
     }
 
-    let marina = null
-    if (formData.service !== 'Item Recovery' && formData.marinaName && formData.marinaName !== 'See recovery location') {
-      const marinaResult = await supabase.from('marinas').upsert({ name: formData.marinaName }, { onConflict: 'name' }).select().single()
-      if (marinaResult.error) {
-        logCheckoutWriteFailure('marinas', `email:${formData.customerEmail}`, marinaResult.error)
-      }
-      marina = marinaResult.data
-    }
-
     // Idempotency / double-submit guard. A confirmed double-submit created two identical
     // orders ~20s apart (duplicate service_orders + order_authorizations + setup intents).
     // Before creating a new order, look for a very-recent identical still-open order for
     // this customer/boat/service/amount and, if found, return its existing setup intent
-    // instead of duplicating everything below. Customer/boat/address/marina above are all
-    // upserts/updates, so they don't duplicate; only what follows this point does.
+    // instead of duplicating everything below. Customer/boat/address above are all
+    // upserts/updates (marina is a read-only lookup), so they don't duplicate; only
+    // what follows this point does.
     {
       const DEDUPE_WINDOW_MS = 2 * 60 * 1000
       const since = new Date(Date.now() - DEDUPE_WINDOW_MS).toISOString()
@@ -518,7 +569,7 @@ serve(async (req) => {
     const orderData: any = {
       order_number: orderNumber, provider_id: providerOwnerUserId,
       customer_id: customer.id, boat_id: boat?.id || null,
-      marina_id: marina?.id || null, dock: formData.dock || null, slip_number: formData.slipNumber || null,
+      marina_id: marinaId, dock: formData.dock || null, slip_number: formData.slipNumber || null,
       service_type: formData.service, service_interval: formData.serviceInterval || 'one-time',
       ...orderQuoteColumns, status: requiresReview ? 'pending_review' : 'pending',
       service_details: formData.serviceDetails || null, notes: formData.customerNotes || null,
