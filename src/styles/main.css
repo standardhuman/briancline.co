@@ -380,3 +380,131 @@ textarea:focus {
     display: none;
   }
 }
+
+/* ─────────────────────────────────────────────────
+   Underwater light: soft sun shafts fanning down from the sun in the hero
+   photo, fading with depth, then carried faintly into the next section so
+   scrolling reads as going deeper. Decorative; still under reduced motion.
+   ───────────────────────────────────────────────── */
+.hero-section > .hero-light {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48%;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* Strongest just under the waterline and near the sun, gone by the bottom. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 92%),
+    radial-gradient(70% 120% at 50% 0%, #000 30%, transparent 85%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 92%),
+    radial-gradient(70% 120% at 50% 0%, #000 30%, transparent 85%);
+  mask-composite: intersect;
+}
+
+.hero-light::before,
+.hero-light::after {
+  content: '';
+  position: absolute;
+  inset: -20% -10% 0;
+  transform-origin: 52% -40%;
+  mix-blend-mode: screen;
+  filter: blur(7px);
+}
+
+.hero-light::before {
+  background: repeating-conic-gradient(from 152deg at 52% -40%,
+      rgba(255, 236, 205, 0) 0deg,
+      rgba(255, 236, 205, 0.3) 2.5deg,
+      rgba(255, 236, 205, 0) 6deg,
+      rgba(255, 236, 205, 0) 11deg);
+  animation: light-sway 14s ease-in-out infinite, light-breathe 9s ease-in-out infinite;
+}
+
+.hero-light::after {
+  background: repeating-conic-gradient(from 158deg at 52% -40%,
+      rgba(200, 240, 248, 0) 0deg,
+      rgba(200, 240, 248, 0.2) 1.5deg,
+      rgba(200, 240, 248, 0) 4deg,
+      rgba(200, 240, 248, 0) 9deg);
+  animation: light-sway 19s ease-in-out infinite reverse, light-breathe 12s ease-in-out infinite -4s;
+}
+
+/* Soften the seam: the hero water fades into the next section's background. */
+.hero-section::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 120px;
+  background: linear-gradient(to bottom, rgba(249, 250, 251, 0), #f9fafb);
+  pointer-events: none;
+}
+
+.depth-section {
+  position: relative;
+  overflow: hidden;
+}
+
+.depth-section > *:not(.depth-light) {
+  position: relative;
+  z-index: 1;
+}
+
+.depth-section > .depth-light {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 640px;
+  z-index: 0;
+  pointer-events: none;
+  /* Shafts fade in just below the seam and out with depth. */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, rgba(0, 0, 0, 0.5) 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, #000 18%, rgba(0, 0, 0, 0.5) 55%, transparent 100%);
+}
+
+.depth-light::before {
+  content: '';
+  position: absolute;
+  inset: -30% -10% 0;
+  transform-origin: 52% -60%;
+  filter: blur(14px);
+  background: repeating-conic-gradient(from 155deg at 52% -60%,
+      rgba(0, 151, 167, 0) 0deg,
+      rgba(0, 151, 167, 0.045) 2.5deg,
+      rgba(0, 151, 167, 0) 6deg,
+      rgba(0, 151, 167, 0) 13deg);
+  animation: light-sway 17s ease-in-out infinite -6s, light-breathe 11s ease-in-out infinite -2s;
+}
+
+@keyframes light-sway {
+  0%,
+  100% {
+    transform: rotate(-1.6deg);
+  }
+  50% {
+    transform: rotate(1.6deg);
+  }
+}
+
+@keyframes light-breathe {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-light::before,
+  .hero-light::after,
+  .depth-light::before {
+    animation: none;
+  }
+}
