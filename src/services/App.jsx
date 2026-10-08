@@ -4,6 +4,7 @@ import ServiceLayout from "./components/ServiceLayout";
 import ScrollToTop from "./components/ScrollToTop";
 import Marine from "./pages/Marine";
 import Diving from "./pages/Diving";
+import HullCleaningCost from "./pages/HullCleaningCost";
 import DivingOrder from "./pages/DivingOrder";
 import Training from "./pages/Training";
 import TrainingFAQ from "./pages/TrainingFAQ";
@@ -23,6 +24,7 @@ export default function App() {
 
           {/* Hull Cleaning (new canonical URL) */}
           <Route path="/hull-cleaning" element={<Diving />} />
+          <Route path="/hull-cleaning/cost" element={<HullCleaningCost />} />
           <Route path="/hull-cleaning/calculator" element={<Diving />} />
           <Route path="/hull-cleaning/order" element={<DivingOrder />} />
 

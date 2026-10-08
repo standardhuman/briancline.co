@@ -33,6 +33,97 @@ export const SERVICE_AREA = {
     "Currently serving Berkeley Marina only. For boats at other Bay Area marinas, email diving@briancline.co for a referral to a trusted dive professional.",
 };
 
+export const COST_PAGE_URL = `${PAGE_URL}/cost`;
+
+// Must match the Google Business Profile exactly (name, phone, service area,
+// hours) so search engines and AI assistants resolve the site and the listing
+// to one business. Do not rename here without renaming the profile.
+export const BUSINESS = {
+  id: `${SITE_URL}/#hull-cleaning-business`,
+  name: "Brian Cline Diving and Hull Cleaning",
+  legalName: "Sailor Skills, LLC",
+  telephone: "+1-415-529-0272",
+  email: "diving@briancline.co",
+  city: "Berkeley",
+  region: "CA",
+  hours: { days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"], opens: "09:00", closes: "17:00" },
+  sameAs: ["https://www.google.com/maps?cid=15043213833605343193"],
+};
+
+const BERKELEY_MARINA = {
+  "@type": "Place",
+  name: "Berkeley Marina",
+  address: { "@type": "PostalAddress", addressLocality: "Berkeley", addressRegion: "CA", addressCountry: "US" },
+};
+
+/** schema.org LocalBusiness node for the hull-cleaning business. */
+export function businessJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": BUSINESS.id,
+    name: BUSINESS.name,
+    legalName: BUSINESS.legalName,
+    url: PAGE_URL,
+    telephone: BUSINESS.telephone,
+    email: BUSINESS.email,
+    image: `${SITE_URL}/images/headshot.png`,
+    description:
+      "In-water hull cleaning for sailboats and powerboats at Berkeley Marina, California, by diver and former high-speed ferry captain Brian Cline. Recurring plans from $" +
+      RATES.recurring.toFixed(2) + " per foot, one-time cleaning $" + RATES.onetime.toFixed(2) + " per foot, $" + RATES.minimum + " minimum per visit.",
+    priceRange: `$${RATES.recurring.toFixed(2)}-$${RATES.onetime.toFixed(2)} per foot`,
+    address: { "@type": "PostalAddress", addressLocality: BUSINESS.city, addressRegion: BUSINESS.region, addressCountry: "US" },
+    areaServed: BERKELEY_MARINA,
+    founder: { "@id": `${SITE_URL}/#brian-cline` },
+    openingHoursSpecification: {
+      "@type": "OpeningHoursSpecification",
+      dayOfWeek: BUSINESS.hours.days,
+      opens: BUSINESS.hours.opens,
+      closes: BUSINESS.hours.closes,
+    },
+    ...(BUSINESS.sameAs.length ? { sameAs: BUSINESS.sameAs } : {}),
+    hasOfferCatalog: { "@type": "OfferCatalog", name: "Hull cleaning rates", url: PRICING_JSON_URL },
+  };
+}
+
+/** schema.org Service node with per-foot offers, provided by BUSINESS. */
+export function serviceJsonLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: "Hull cleaning at Berkeley Marina",
+    description:
+      "Underwater hull cleaning for sailboats and powerboats at Berkeley Marina, California. Currently serving Berkeley Marina only; referrals offered for boats kept at other Bay Area marinas. Includes marine growth removal, zinc anode inspection, and propeller cleaning.",
+    provider: { "@id": BUSINESS.id },
+    areaServed: BERKELEY_MARINA,
+    serviceType: "Hull Cleaning",
+    url: PAGE_URL,
+    subjectOf: { "@type": "DataDownload", encodingFormat: "application/json", contentUrl: PRICING_JSON_URL },
+    offers: [
+      ["Recurring hull cleaning (monthly, every 2 months or quarterly)", RATES.recurring],
+      ["One-time hull cleaning", RATES.onetime],
+      ["Underwater inspection", RATES.inspection],
+    ].map(([name, price]) => ({
+      "@type": "Offer",
+      name,
+      priceCurrency: "USD",
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price,
+        priceCurrency: "USD",
+        unitText: "per foot of boat length",
+      },
+      eligibleTransactionVolume: {
+        "@type": "PriceSpecification",
+        minPrice: RATES.minimum,
+        priceCurrency: "USD",
+        description: "Minimum charge per visit",
+      },
+      areaServed: BERKELEY_MARINA,
+    })),
+  };
+}
+
 // Manual copy of an offer whose live terms are owned by the promo config in the
 // SailorSkills Pro database (claim_service_promo). Update this when the offer
 // changes; checkout always applies the live terms.
@@ -85,7 +176,9 @@ function growthMatrix() {
 export function buildPricingSummary() {
   return {
     name: "Hull cleaning and dive services",
-    provider: "Brian Cline Diving & Hull Cleaning",
+    provider: BUSINESS.name,
+    contact: { telephone: BUSINESS.telephone, email: BUSINESS.email },
+    costGuide: COST_PAGE_URL,
     page: PAGE_URL,
     order: ORDER_URL,
     quoteApi: {

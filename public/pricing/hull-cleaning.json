@@ -1,6 +1,11 @@
 {
   "name": "Hull cleaning and dive services",
-  "provider": "Brian Cline Diving & Hull Cleaning",
+  "provider": "Brian Cline Diving and Hull Cleaning",
+  "contact": {
+    "telephone": "+1-415-529-0272",
+    "email": "diving@briancline.co"
+  },
+  "costGuide": "https://briancline.co/hull-cleaning/cost",
   "page": "https://briancline.co/hull-cleaning",
   "order": "https://briancline.co/hull-cleaning/order",
   "quoteApi": {

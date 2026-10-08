@@ -42,6 +42,9 @@ export default function HowPricingWorks() {
           <p className="mt-3">
             <strong className="text-foreground">Example:</strong> a 35 ft sailboat on a monthly plan with light growth is {formatCurrency(RATES.recurring)} × 35 = {formatCurrency(example)} per visit.
           </p>
+          <p className="mt-3">
+            <a className="underline text-[#0073a8]" href="/hull-cleaning/cost">Hull cleaning cost at Berkeley Marina</a>: price table by boat length and type.
+          </p>
         </div>
         <div className="min-w-0">
           <h4 className="font-semibold text-foreground mb-2">Growth surcharge</h4>

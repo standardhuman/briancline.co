@@ -22,6 +22,7 @@ const DIST = resolve(__dirname, '..', 'dist');
 const ROUTES = [
   '/marine',
   '/hull-cleaning',
+  '/hull-cleaning/cost',
   '/boat-detailing',
   '/sailing-lessons',
   '/sailing-lessons/faq',
@@ -133,7 +134,12 @@ async function prerender() {
       failures.push(`${route} — no output file at ${route.slice(1)}/index.html`);
       continue;
     }
-    const match = readFileSync(file, 'utf-8').match(/<title>([^<]*)<\/title>/i);
+    const html = readFileSync(file, 'utf-8');
+    const canonicals = [...html.matchAll(/<link rel="canonical" href="([^"]*)"/gi)].map(m => m[1]);
+    if (canonicals.length !== 1 || canonicals[0] !== `https://briancline.co${route}`) {
+      failures.push(`${route} — canonical ${JSON.stringify(canonicals)} does not point at itself`);
+    }
+    const match = html.match(/<title>([^<]*)<\/title>/i);
     const title = match ? match[1].trim() : '';
     if (!title) {
       failures.push(`${route} — missing or empty <title>`);

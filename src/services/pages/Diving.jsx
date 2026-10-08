@@ -11,7 +11,7 @@ import JsonLd from "../components/JsonLd";
 import OptImage from "../components/OptImage";
 import ConditionsPricing from "../components/ConditionsPricing";
 import HowPricingWorks from "../components/HowPricingWorks";
-import { PRICING_JSON_URL } from "../lib/hull-cleaning-public";
+import { businessJsonLd, serviceJsonLd } from "../lib/hull-cleaning-public";
 import {
   Ruler, Ship, Sailboat, CalendarDays, Paintbrush, Clock, Wrench,
   Calculator, ListChecks, CheckCircle2, HelpCircle, ArrowRight, Info, Anchor,
@@ -118,6 +118,10 @@ const SERVICE_LIST = [
 ];
 
 const FAQS = [
+  {
+    q: "How much does hull cleaning cost at Berkeley Marina?",
+    a: `Hull cleaning at Berkeley Marina is $${RATES.recurring.toFixed(2)} per foot on a recurring plan (monthly, every 2 months or quarterly) and $${RATES.onetime.toFixed(2)} per foot for a one-time cleaning, with a $${RATES.minimum} minimum per visit. A 35 ft sailboat on a monthly plan with light growth is $${(RATES.recurring * 35).toFixed(2)} per visit. Powerboats and catamarans add 25%, trimarans 50%, and heavy growth can add 50% to 100%. See the full cost guide at briancline.co/hull-cleaning/cost.`,
+  },
   {
     q: "Which marinas do you service?",
     a: "We currently serve Berkeley Marina exclusively. If your boat is kept at another Bay Area marina, email me at diving@briancline.co with your marina and boat details — I'll connect you with a trusted dive professional from my network.",
@@ -367,40 +371,16 @@ export default function Diving() {
   return (
     <div>
       <PageMeta
-        title="Hull Cleaning & Dive Services – Berkeley Marina | Brian Cline"
-        description="Professional underwater hull cleaning at Berkeley Marina, California. Currently serving Berkeley Marina exclusively; referrals available for boats at other Bay Area marinas. Subscription plans from $4.50/ft with instant estimates, before/after video, and transparent pricing."
+        title={`Hull Cleaning at Berkeley Marina: $${RATES.recurring.toFixed(2)}/ft | Brian Cline Diving and Hull Cleaning`}
+        description={`Underwater hull cleaning at Berkeley Marina, California: $${RATES.recurring.toFixed(2)} per foot on a recurring plan, $${RATES.onetime.toFixed(2)} per foot one-time, $${RATES.minimum} minimum per visit. Instant estimate, before/after video, transparent pricing. Currently serving Berkeley Marina only; referrals for other Bay Area marinas.`}
+        canonical="/hull-cleaning"
       />
-      <JsonLd data={{
-        "@context": "https://schema.org",
-        "@type": "Service",
-        "name": "Hull Cleaning - Berkeley Marina",
-        "description": "Professional underwater hull cleaning for sailboats and powerboats at Berkeley Marina, California. Currently serving Berkeley Marina exclusively; referrals offered for boats kept at other Bay Area marinas. Includes marine growth removal, zinc anode inspection, and propeller cleaning.",
-        "provider": { "@id": "https://briancline.co/#vessel-management" },
-        "areaServed": { "@type": "Place", "name": "Berkeley Marina, Berkeley, California" },
-        "serviceType": "Hull Cleaning",
-        "url": "https://briancline.co/hull-cleaning",
-        "subjectOf": { "@type": "DataDownload", "encodingFormat": "application/json", "contentUrl": PRICING_JSON_URL },
-        "offers": [
-          ["Recurring hull cleaning (monthly, every 2 months or quarterly)", RATES.recurring],
-          ["One-time hull cleaning", RATES.onetime],
-          ["Underwater inspection", RATES.inspection],
-        ].map(([name, price]) => ({
-          "@type": "Offer",
-          "name": name,
-          "priceCurrency": "USD",
-          "priceSpecification": {
-            "@type": "UnitPriceSpecification",
-            "price": price,
-            "priceCurrency": "USD",
-            "unitText": "per foot of boat length",
-          },
-          "areaServed": { "@type": "Place", "name": "Berkeley Marina, Berkeley, California" },
-        })),
-      }} />
+      <JsonLd data={businessJsonLd()} />
+      <JsonLd data={serviceJsonLd()} />
       <JsonLd data={{
         "@context": "https://schema.org",
         "@type": "FAQPage",
-        "mainEntity": FAQS.slice(0, 6).map(faq => ({
+        "mainEntity": FAQS.map(faq => ({
           "@type": "Question",
           "name": faq.q,
           "acceptedAnswer": { "@type": "Answer", "text": faq.a }
