@@ -290,3 +290,61 @@ textarea:focus {
   margin-left: -0.125rem;
   color: #9ca3af;
 }
+
+/* ─────────────────────────────────────────────────
+   Hero bubbles: air rising from the depths of the hero photo and fading at
+   the waterline. Adapted from the SailorSkills Pro BubbleLoader (bl-rise).
+   ───────────────────────────────────────────────── */
+.hero-section > .hero-bubbles {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 44%;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  container-type: size;
+}
+
+.hero-bubbles span {
+  position: absolute;
+  bottom: -16px;
+  left: var(--x);
+  width: var(--s);
+  height: var(--s);
+  border-radius: 9999px;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95) 0%, rgba(224, 247, 250, 0.5) 45%, rgba(178, 235, 242, 0.12) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), inset 0 0 3px rgba(255, 255, 255, 0.5), 0 0 8px rgba(178, 235, 242, 0.4);
+  opacity: 0;
+  animation: hero-rise var(--d) ease-in infinite;
+  animation-delay: var(--delay);
+  will-change: transform, opacity;
+}
+
+@keyframes hero-rise {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.95;
+  }
+  35% {
+    transform: translate(var(--dx), -35cqh) scale(0.7);
+  }
+  65% {
+    transform: translate(calc(var(--dx) * -0.6), -65cqh) scale(0.85);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(calc(var(--dx) * 0.4), calc(-100cqh - 16px)) scale(1);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-section > .hero-bubbles {
+    display: none;
+  }
+}
