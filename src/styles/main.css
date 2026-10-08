@@ -313,33 +313,65 @@ textarea:focus {
   left: var(--x);
   width: var(--s);
   height: var(--s);
-  border-radius: 9999px;
-  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95) 0%, rgba(224, 247, 250, 0.5) 45%, rgba(178, 235, 242, 0.12) 100%);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55), inset 0 0 3px rgba(255, 255, 255, 0.5), 0 0 8px rgba(178, 235, 242, 0.4);
+  /* Tint follows the photo: deep blue where the white wash covers the left of
+     the hero, pale cyan over the darker water on the right. */
+  --deep: clamp(0%, calc((100% - var(--x)) * 1.6), 100%);
+  --tint: color-mix(in oklab, #0b5e8a var(--deep), #d6f5fa);
   opacity: 0;
-  animation: hero-rise var(--d) ease-in infinite;
+  /* One continuous linear climb. Easing per keyframe segment made bubbles
+     stall at each step, so the wobble lives on ::before instead. */
+  animation: hero-rise var(--d) linear infinite, hero-fade var(--d) linear infinite;
   animation-delay: var(--delay);
-  will-change: transform, opacity;
+  will-change: translate, opacity;
+}
+
+.hero-bubbles span::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.9) 0%, color-mix(in oklab, var(--tint) 55%, transparent) 45%, color-mix(in oklab, var(--tint) 18%, transparent) 100%);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tint) 75%, transparent), 0 0 8px color-mix(in oklab, var(--tint) 40%, transparent);
+  animation: hero-sway var(--d) ease-in-out infinite;
+  animation-delay: var(--delay);
 }
 
 @keyframes hero-rise {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: 0 calc(-100cqh - 16px);
+  }
+}
+
+@keyframes hero-fade {
   0% {
-    transform: translate(0, 0) scale(0.5);
     opacity: 0;
   }
-  12% {
+  10% {
     opacity: 0.95;
   }
-  35% {
-    transform: translate(var(--dx), -35cqh) scale(0.7);
-  }
-  65% {
-    transform: translate(calc(var(--dx) * -0.6), -65cqh) scale(0.85);
-    opacity: 0.75;
+  70% {
+    opacity: 0.8;
   }
   100% {
-    transform: translate(calc(var(--dx) * 0.4), calc(-100cqh - 16px)) scale(1);
     opacity: 0;
+  }
+}
+
+@keyframes hero-sway {
+  0% {
+    transform: translateX(0) scale(0.5);
+  }
+  35% {
+    transform: translateX(var(--dx)) scale(0.7);
+  }
+  65% {
+    transform: translateX(calc(var(--dx) * -0.6)) scale(0.85);
+  }
+  100% {
+    transform: translateX(calc(var(--dx) * 0.4)) scale(1);
   }
 }
 
