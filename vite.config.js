@@ -39,6 +39,7 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         services: resolve(__dirname, 'services.html'),
         fireshift: resolve(__dirname, 'projects/fireshift.html'),
+        'perimeter-supervisor': resolve(__dirname, 'projects/perimeter-supervisor.html'),
         'podcast-renamer': resolve(__dirname, 'projects/podcast-renamer.html'),
       },
     },

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Perimeter Supervisor is an offline-first iPhone app for Burning Man Perimeter shift leads: roll call, pairing, briefings, trucks and equipment, movement, meals, handoffs and accountability, all working with no signal.">
+  <title>Perimeter Supervisor | Brian Cline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body class="bg-white text-gray-900 antialiased">
+
+  <!-- Navigation -->
+  <nav class="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-sm z-50 border-b border-gray-100">
+    <div class="max-w-4xl mx-auto px-6 py-4 flex justify-between items-center">
+      <a href="/#projects" class="inline-flex items-center text-gray-600 hover:text-gray-900 font-medium">
+        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+        </svg>
+        Back to Projects
+      </a>
+      <a href="/#connect" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800">
+        Let's Connect
+      </a>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="pt-32 pb-16">
+    <div class="max-w-4xl mx-auto px-6">
+      <div class="flex items-center gap-5">
+        <img src="/images/projects/perimeter-supervisor-icon.png" alt="" width="88" height="88" class="rounded-2xl shadow-md">
+        <div>
+          <span class="text-xs text-gray-400 font-medium uppercase tracking-wider">Tools</span>
+          <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mt-1">Perimeter Supervisor</h1>
+        </div>
+      </div>
+      <p class="mt-6 text-xl text-gray-600 max-w-2xl">
+        The iPhone app a Burning Man Perimeter lead runs a shift from, before, during and after. Everything is saved on the phone, so it keeps working with no signal.
+      </p>
+      <p class="mt-6 text-gray-500">
+        Used on shifts at the 2026 burn. The schedule itself comes from its sibling app, <a href="/projects/fireshift" class="text-gray-900 font-medium hover:underline">FireShift</a>.
+      </p>
+    </div>
+  </section>
+
+  <!-- What it covers -->
+  <section class="py-12 bg-gray-50">
+    <div class="max-w-4xl mx-auto px-6">
+      <h2 class="text-2xl font-bold text-gray-900 mb-8">What a lead does with it</h2>
+      <div class="grid md:grid-cols-2 gap-6 text-gray-600">
+        <div><h3 class="font-semibold text-gray-900 mb-1">Before the shift</h3><p>The day's schedule and what comes next, roll call, pairing volunteers, and the briefing.</p></div>
+        <div><h3 class="font-semibold text-gray-900 mb-1">Trucks and equipment</h3><p>Equipment checks, moving trucks between points around the perimeter, and a movement log.</p></div>
+        <div><h3 class="font-semibold text-gray-900 mb-1">During the shift</h3><p>Who is where, meals, notes on each volunteer, and accountability for everyone out there.</p></div>
+        <div><h3 class="font-semibold text-gray-900 mb-1">Handoff and wrap</h3><p>Passing the shift to the next lead of record, and wrapping up cleanly.</p></div>
+      </div>
+      <p class="mt-8 text-sm text-gray-500">Day and Night themes are tuned for desert glare and for keeping your eyes adapted to the dark. Every change is attributed to the signed-in lead.</p>
+    </div>
+  </section>
+
+  <!-- Tech Stack -->
+  <section class="py-12">
+    <div class="max-w-4xl mx-auto px-6">
+      <h2 class="text-2xl font-bold text-gray-900 mb-8">Tech stack</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-lg p-4 border border-gray-200"><div class="font-semibold text-gray-900">React Native</div><div class="text-sm text-gray-500">iPhone app</div></div>
+        <div class="bg-white rounded-lg p-4 border border-gray-200"><div class="font-semibold text-gray-900">Expo</div><div class="text-sm text-gray-500">Build and navigation</div></div>
+        <div class="bg-white rounded-lg p-4 border border-gray-200"><div class="font-semibold text-gray-900">WatermelonDB</div><div class="text-sm text-gray-500">On-device storage</div></div>
+        <div class="bg-white rounded-lg p-4 border border-gray-200"><div class="font-semibold text-gray-900">Supabase</div><div class="text-sm text-gray-500">Sign-in</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Context -->
+  <section class="py-12 bg-gray-50">
+    <div class="max-w-4xl mx-auto px-6">
+      <h2 class="text-2xl font-bold text-gray-900 mb-4">Why this exists</h2>
+      <p class="text-gray-600 leading-relaxed">
+        Perimeter leads run their shifts out on the playa, often with no cell service, in dust and darkness. Clipboards and paper rosters get lost and are hard to hand off. Perimeter Supervisor keeps the whole shift in one place on the lead's phone, from roll call to the handoff.
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-12 border-t border-gray-200">
+    <div class="max-w-4xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+      <p class="text-gray-500 text-sm">
+        &copy; 2026 Brian Cline
+      </p>
+      <a href="/" class="text-gray-600 hover:text-gray-900 font-medium">briancline.co</a>
+    </div>
+  </footer>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
