@@ -9,7 +9,7 @@ import {
   LAST_CLEANED_OPTIONS,
   lookupFouling,
 } from "../lib/diving-calculator";
-import { PROMOTION, PRICING_JSON_URL, QUOTE_API_URL } from "../lib/hull-cleaning-public";
+import { PROMOTION, PRICING_JSON_URL, QUOTE_API_URL, MCP_URL } from "../lib/hull-cleaning-public";
 
 const pct = (n) => `${Math.round(n * 1000) / 10}%`;
 
@@ -84,7 +84,8 @@ export default function HowPricingWorks() {
         For AI assistants and tools: the same rate card is published as JSON at{" "}
         <a className="underline" href={PRICING_JSON_URL}>{PRICING_JSON_URL.replace("https://", "")}</a>, and{" "}
         <a className="underline" href={`${QUOTE_API_URL}?service=cleaning&length=35`}>{QUOTE_API_URL.replace("https://", "")}</a>{" "}
-        returns a read-only estimate.
+        returns a read-only estimate. Assistants that support MCP connectors can add the read-only MCP server at{" "}
+        <span className="break-all">{MCP_URL.replace("https://", "")}</span>.
       </p>
     </Card>
   );

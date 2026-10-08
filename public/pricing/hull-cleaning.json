@@ -87,6 +87,10 @@
     },
     "example": "https://briancline.co/api/hull-cleaning-quote?service=cleaning&length=35&frequency=monthly&paintAge=1-1.5yr&lastCleaned=2-4"
   },
+  "mcpServer": {
+    "url": "https://briancline.co/api/mcp",
+    "transport": "streamable-http"
+  },
   "currency": "USD",
   "serviceArea": {
     "marinas": [
