@@ -750,7 +750,7 @@ function OrderForm({ searchParams, navigate }) {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
               <Field label="Make">
-                <Input placeholder="Beneteau" value={form.boatMake} onChange={(e) => updateField("boatMake", e.target.value)} />
+                <Input placeholder="e.g. Catalina" value={form.boatMake} onChange={(e) => updateField("boatMake", e.target.value)} />
               </Field>
               <Field label="Model">
                 <Input placeholder="Oceanis 40.1" value={form.boatModel} onChange={(e) => updateField("boatModel", e.target.value)} />
