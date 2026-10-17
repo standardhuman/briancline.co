@@ -26,6 +26,22 @@ import {
 } from '../_shared/service-promo.ts'
 import { resolveSecretKey } from '../_shared/supabase-keys.ts'
 import { resolveMarina, type MarinaLookup } from '../_shared/marina-match.ts'
+import {
+  invoiceSnapshotFields,
+  parsePaymentPreference,
+  validateInvoiceAuthorization,
+  withInvoiceMetadata,
+} from '../_shared/invoice-terms.ts'
+import {
+  sendInvoiceOrderNotifications,
+  type InvoiceNotificationDeps,
+  type InvoiceOrderEmailRow,
+} from '../_shared/invoice-order-notification.ts'
+import {
+  interpretSendSmsResponse,
+  type OperatorOrderSmsInput,
+  type SendSmsOutcome,
+} from '../_shared/new-order-notification.ts'
 
 const stripeMode = Deno.env.get('STRIPE_MODE') || 'test'
 const stripeSecretKey = stripeMode === 'live'
@@ -198,6 +214,125 @@ function marinaLookup(supabase: any): MarinaLookup {
   }
 }
 
+// ── Pay-by-invoice notifications ──
+// Card orders are announced by diving-stripe-webhook (setup_intent.succeeded).
+// Invoice orders have no SetupIntent, so this function announces them itself,
+// using the same sender, keys, recipients and idempotency stamps as the webhook.
+const resendApiKey = Deno.env.get('RESEND_API_KEY_DIVING') ?? Deno.env.get('RESEND_API_KEY') ?? ''
+const orderNotifyPhoneE164 = (Deno.env.get('ORDER_NOTIFY_PHONE_E164') ?? '').trim()
+const defaultProviderOwnerUserId = (Deno.env.get('DEFAULT_PROVIDER_OWNER_USER_ID') ?? '').trim()
+const operatorSmsConfigValid = Boolean(
+  supabaseUrl &&
+  supabaseServiceKey &&
+  defaultProviderOwnerUserId &&
+  /^\+[1-9]\d{7,14}$/.test(orderNotifyPhoneE164)
+)
+
+const INVOICE_ORDER_EMAIL_SELECT = `order_number, service_type, service_interval, estimate_mode, estimated_amount, estimated_min_amount, estimated_max_amount, notes, service_details, dock, slip_number, requires_review,
+  boat:boat_id ( name, length, make, model ), marina:marina_id ( name ), customer:customer_id ( name, email, phone )`
+
+async function sendResendEmail(message: { to: string; subject: string; html: string }): Promise<void> {
+  if (!resendApiKey) throw new Error('Resend API key is not configured')
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    signal: AbortSignal.timeout(10_000),
+    headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: Deno.env.get('EMAIL_FROM_ADDRESS') || 'Brian Cline <diving@briancline.co>',
+      to: [message.to], subject: message.subject, html: message.html,
+    }),
+  })
+  if (!response.ok) throw new Error(`Resend rejected the email (HTTP ${response.status})`)
+}
+
+async function sendOperatorSms(to: string, body: string): Promise<SendSmsOutcome> {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-sms`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(10_000),
+      headers: {
+        apikey: supabaseServiceKey,
+        Authorization: `Bearer ${supabaseServiceKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ to, body }),
+    })
+    const raw = await response.text()
+    let json: unknown = null
+    try {
+      json = JSON.parse(raw)
+    } catch {
+      return 'ambiguous'
+    }
+    return interpretSendSmsResponse(response.status, json)
+  } catch {
+    return 'ambiguous'
+  }
+}
+
+function invoiceNotificationDeps(args: {
+  supabase: any
+  marinaNeedsReview: boolean
+  smsInput: OperatorOrderSmsInput
+}): InvoiceNotificationDeps {
+  const { supabase } = args
+  return {
+    adminEmail: Deno.env.get('ADMIN_EMAILS') || 'standardhuman@gmail.com',
+    marinaNeedsReview: args.marinaNeedsReview,
+    async claimEmail(orderId: string): Promise<InvoiceOrderEmailRow | null> {
+      const { data, error } = await supabase.from('service_orders')
+        .update({ confirmation_email_sent_at: new Date().toISOString() })
+        .eq('id', orderId).is('confirmation_email_sent_at', null)
+        .select(INVOICE_ORDER_EMAIL_SELECT)
+        .maybeSingle()
+      if (error) throw new Error(`service_orders email-claim update failed: ${error.message}`)
+      return data ?? null
+    },
+    async releaseEmail(orderId: string): Promise<void> {
+      const { error } = await supabase.from('service_orders')
+        .update({ confirmation_email_sent_at: null }).eq('id', orderId)
+      if (error) throw new Error(`service_orders email-claim release failed: ${error.message}`)
+    },
+    sendEmail: sendResendEmail,
+    sms: operatorSmsConfigValid
+      ? {
+          input: args.smsInput,
+          deps: {
+            recipient: orderNotifyPhoneE164,
+            providerOwnerUserId: defaultProviderOwnerUserId,
+            senderConfigured: true,
+            async claim(orderId: string, providerOwnerUserId: string): Promise<string | null> {
+              const claimToken = new Date().toISOString()
+              const { data, error } = await supabase.from('service_orders')
+                .update({ operator_sms_sent_at: claimToken })
+                .eq('id', orderId).eq('provider_id', providerOwnerUserId)
+                .is('operator_sms_sent_at', null)
+                .select('id').maybeSingle()
+              if (error) throw new Error(`operator SMS claim failed: ${error.message}`)
+              return data ? claimToken : null
+            },
+            async release(orderId: string, providerOwnerUserId: string, claimToken: string): Promise<void> {
+              const { data, error } = await supabase.from('service_orders')
+                .update({ operator_sms_sent_at: null })
+                .eq('id', orderId).eq('provider_id', providerOwnerUserId)
+                .eq('operator_sms_sent_at', claimToken)
+                .select('id').maybeSingle()
+              if (error) throw new Error(`operator SMS release failed: ${error.message}`)
+              if (!data) throw new Error('operator SMS release matched no retained claim')
+            },
+            send: sendOperatorSms,
+            warn(message: string, context: Record<string, unknown>) {
+              console.warn(message, context)
+            },
+          },
+        }
+      : null,
+    warn(message: string, context: Record<string, unknown>) {
+      console.warn(message, context)
+    },
+  }
+}
+
 serve(async (req) => {
   const origin = req.headers.get('origin')
   const corsHeaders = getCorsHeaders(origin)
@@ -265,14 +400,33 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: lead.error || 'Submission rejected' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: lead.status || 400 })
     }
-    const requiresReview = !!lead.requiresReview
+    // Pay-by-invoice (requires approval). Absent = 'card', so older clients keep
+    // today's flow; any other value is rejected before a single write. An invoice
+    // order always goes to review: it is held exactly like a marina-review order
+    // (status pending_review, no recurring schedule) until approved in Pro.
+    const paymentPreferenceResult = parsePaymentPreference((formData as any).paymentPreference)
+    if (!paymentPreferenceResult.ok) {
+      return new Response(JSON.stringify({ error: paymentPreferenceResult.error }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+    }
+    const isInvoice = paymentPreferenceResult.preference === 'invoice'
+    const leadRequiresReview = !!lead.requiresReview
+    const requiresReview = leadRequiresReview || isInvoice
 
     const auth = (formData as any).authorization
     if (!auth || typeof auth !== 'object') {
       return new Response(JSON.stringify({ error: 'Missing authorization payload' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
     }
-    if (auth.agreedToTerms !== true || auth.agreedToCharge !== true) {
+    if (isInvoice) {
+      // Invoice orders save no card, so there is no charge authorization to
+      // accept; the pay-by-invoice terms (exact server version) replace it.
+      const invoiceAuth = validateInvoiceAuthorization(auth)
+      if (!invoiceAuth.ok) {
+        return new Response(JSON.stringify({ error: invoiceAuth.error }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
+      }
+    } else if (auth.agreedToTerms !== true || auth.agreedToCharge !== true) {
       return new Response(JSON.stringify({ error: 'You must accept the Terms of Service and the charge authorization to continue.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 })
     }
@@ -512,7 +666,20 @@ serve(async (req) => {
             .eq('estimated_min_amount', checkoutQuote.minCents / 100)
             .eq('estimated_max_amount', checkoutQuote.maxCents / 100)
       dupQuery = boat?.id ? dupQuery.eq('boat_id', boat.id) : dupQuery.is('boat_id', null)
+      // An invoice order has no setup intent to reuse, so it dedupes on the same
+      // keys minus the SI, restricted to earlier INVOICE orders: a card attempt
+      // the customer abandoned before switching to invoice must not swallow the
+      // invoice request.
+      if (isInvoice) dupQuery = dupQuery.eq('metadata->>payment_preference', 'invoice')
       const { data: recentDup } = (await dupQuery.maybeSingle()) as { data: any }
+      if (isInvoice && recentDup) {
+        console.log(`[create-payment-intent] Idempotent reuse of recent invoice order ${recentDup.order_number} (${recentDup.id})`)
+        return new Response(JSON.stringify({
+          clientSecret: null, intentType: 'none',
+          orderId: recentDup.id, orderNumber: recentDup.order_number,
+          requiresReview: recentDup.requires_review, deduped: true,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+      }
       if (recentDup?.stripe_setup_intent_id) {
         try {
           const existingIntent = await stripe.setupIntents.retrieve(recentDup.stripe_setup_intent_id)
@@ -583,6 +750,9 @@ serve(async (req) => {
         recoveryLocation: formData.recoveryLocation, itemDescription: formData.itemDescription, lostDate: formData.dropDate,
       }
     }
+    if (isInvoice) {
+      orderData.metadata = withInvoiceMetadata(orderData.metadata)
+    }
     const { data: order, error: orderError } = await supabase.from('service_orders').insert(orderData).select().single()
     if (orderError) throw orderError
     if (!order) throw new Error('Failed to create order')
@@ -644,6 +814,80 @@ serve(async (req) => {
           estimated_max: (checkoutQuote.maxCents / 100).toString(),
         }
 
+    const isRecurringOrder = formData.serviceInterval !== 'one-time'
+    const annualizedCents = (() => {
+      if (!isRecurringOrder || checkoutQuote.mode !== 'exact') return null
+      const monthsBetween = INTERVAL_MONTHS[String(formData.serviceInterval || '')] || 1
+      if (monthsBetween < 1) return null
+      const perYear = Math.round(12 / monthsBetween)
+      return checkoutQuote.amountCents * perYear
+    })()
+
+    // ── Pay-by-invoice order: no SetupIntent, no card. ──
+    // Same authorization evidence as a card order (typed name, ToS version, IP,
+    // user agent, quote) plus the pay-by-invoice terms the customer accepted. No
+    // setup_intent.succeeded webhook will ever fire for this order, so the
+    // confirmation emails and operator SMS are sent from here (non-fatal).
+    if (isInvoice) {
+      const { data: invoiceAuthRow, error: invoiceAuthError } = await supabase
+        .from('order_authorizations').insert({
+          customer_id: customer.id, service_order_id: order.id, authorization_ip: remoteIp,
+          user_agent: typeof auth.userAgent === 'string' ? auth.userAgent.slice(0, 1000) : null,
+          typed_name: typedName, terms_version: auth.termsVersion,
+          // The Recurring Authorization Agreement covers charging a saved card;
+          // an invoice customer saved none and was not shown it.
+          recurring_terms_version: null,
+          quote_mode: checkoutQuote.mode,
+          quoted_price_cents: checkoutQuote.mode === 'exact' ? checkoutQuote.amountCents : null,
+          quoted_min_cents: checkoutQuote.mode === 'range' ? checkoutQuote.minCents : null,
+          quoted_max_cents: checkoutQuote.mode === 'range' ? checkoutQuote.maxCents : null,
+          quoted_frequency: formData.serviceInterval, quoted_service_type: formData.service,
+          quoted_annualized_cents: annualizedCents,
+          quote_snapshot: {
+            service: formData.service, interval: formData.serviceInterval, quote: checkoutQuote,
+            boatLength: formData.boatLength, boatType: formData.serviceDetails?.boatType,
+            hullType: formData.serviceDetails?.hullType, serviceDetails: formData.serviceDetails || null,
+            referer: auth.referer || null,
+            authorizedAt: auth.authorizedAt || new Date().toISOString(),
+            ...invoiceSnapshotFields(),
+          },
+          is_recurring: isRecurringOrder, stripe_customer_id: stripeCustomer.id,
+          stripe_setup_intent_id: null,
+        }).select('id').single()
+      if (invoiceAuthError) {
+        console.error('Failed to write order_authorizations:', invoiceAuthError)
+        throw new Error('Could not record authorization')
+      }
+
+      const { error: linkInvoiceOrderError } = await supabase.from('service_orders').update({
+        stripe_customer_id: stripeCustomer.id,
+        order_authorization_id: invoiceAuthRow.id,
+      }).eq('id', order.id)
+      if (linkInvoiceOrderError) logCheckoutWriteFailure('service_orders', orderNumber, linkInvoiceOrderError)
+
+      const notification = await sendInvoiceOrderNotifications(order.id, invoiceNotificationDeps({
+        supabase,
+        marinaNeedsReview: leadRequiresReview,
+        smsInput: {
+          orderId: order.id,
+          providerId: order.provider_id ?? providerOwnerUserId,
+          orderNumber,
+          boatName: boat?.name ?? null,
+          // Only a known service name reaches the SMS body; anything else reads "Service".
+          serviceLabel: Object.prototype.hasOwnProperty.call(serviceTypeMap, String(formData.service || ''))
+            ? String(formData.service) : null,
+          isTest: order.is_test === true,
+          stripeLivemode: stripeMode === 'live',
+        },
+      }))
+      console.log(`[create-payment-intent] invoice order ${orderNumber} notifications: email=${notification.email} sms=${notification.sms.status}`)
+
+      return new Response(JSON.stringify({
+        clientSecret: null, intentType: 'none', orderId: order.id, orderNumber, requiresReview,
+        ...(promoApplied ? { promoApplied } : {}),
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 })
+    }
+
     const setupIntent = await stripe.setupIntents.create({
       customer: stripeCustomer.id, payment_method_types: ['card'], usage: 'off_session',
       metadata: {
@@ -654,15 +898,6 @@ serve(async (req) => {
     })
     const clientSecret = setupIntent.client_secret
     const intentType = 'setup'
-
-    const isRecurringOrder = formData.serviceInterval !== 'one-time'
-    const annualizedCents = (() => {
-      if (!isRecurringOrder || checkoutQuote.mode !== 'exact') return null
-      const monthsBetween = INTERVAL_MONTHS[String(formData.serviceInterval || '')] || 1
-      if (monthsBetween < 1) return null
-      const perYear = Math.round(12 / monthsBetween)
-      return checkoutQuote.amountCents * perYear
-    })()
 
     const { data: authRow, error: authError } = await supabase
       .from('order_authorizations').insert({
