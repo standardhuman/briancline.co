@@ -17,6 +17,14 @@ import ConditionsPricing from "../components/ConditionsPricing";
 import EstimateScale from "../components/EstimateScale";
 import ConditionSelects from "../components/ConditionSelects";
 import { ACTIVE_VERSION } from "./legal/terms-content";
+import { INVOICE_TERMS_VERSION } from "./legal/invoice-terms";
+import {
+  ByPaymentPreference,
+  InvoiceTermsAgreement,
+  PaymentPreferenceChoice,
+  PAYMENT_PREFERENCE_CARD,
+  PAYMENT_PREFERENCE_INVOICE,
+} from "../components/PayByInvoice";
 import {
   Ship, MapPin, User, Wrench, CreditCard, ArrowRight, Loader2,
   CheckCircle2, AlertCircle, Anchor, Calendar
@@ -362,6 +370,9 @@ function OrderForm({ searchParams, navigate }) {
 
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToCharge, setAgreedToCharge] = useState(false);
+  // "card" (default, today's flow) or "invoice" (pay by invoice, requires approval).
+  const [paymentPreference, setPaymentPreference] = useState(PAYMENT_PREFERENCE_CARD);
+  const [agreedToInvoiceTerms, setAgreedToInvoiceTerms] = useState(false);
   const [typedName, setTypedName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -393,6 +404,20 @@ function OrderForm({ searchParams, navigate }) {
   const allCardComplete = cardState.numberComplete && cardState.expiryComplete && cardState.cvcComplete;
 
   const turnstileOk = !TURNSTILE_SITE_KEY || !!turnstileToken;
+
+  // Pay by invoice saves no card: the Stripe fields and the charge authorization
+  // are not shown, and the pay-by-invoice terms checkbox replaces the latter.
+  const isInvoice = paymentPreference === PAYMENT_PREFERENCE_INVOICE;
+  const paymentReady = isInvoice
+    ? agreedToInvoiceTerms
+    : agreedToCharge && allCardComplete;
+  const choosePaymentPreference = useCallback((next) => {
+    setPaymentPreference(next);
+    // The Stripe fields unmount when invoice is chosen and come back empty, so
+    // never let a stale "complete" flag or error survive the switch.
+    setCardState({ numberComplete: false, expiryComplete: false, cvcComplete: false });
+    setCardErrors({ number: null, expiry: null, cvc: null });
+  }, []);
 
   // Recurring iff cleaning + a chosen, non-one-time frequency. Drives the wording
   // of the charge-authorization checkbox and whether we capture a recurring terms
@@ -473,9 +498,8 @@ function OrderForm({ searchParams, navigate }) {
     frequencyChosen &&
     checkoutQuote &&
     agreedToTerms &&
-    agreedToCharge &&
+    paymentReady &&
     typedNameMatches &&
-    allCardComplete &&
     turnstileOk &&
     !isSubmitting;
 
@@ -556,6 +580,7 @@ function OrderForm({ searchParams, navigate }) {
         promoCode: promoCodeForSubmission(form.promoCode),
         websiteUrl: form.websiteUrl, // honeypot
         turnstileToken,
+        paymentPreference,
         serviceDetails: {
           serviceName: service.name,
           boatLength: form.boatLength || initialLength,
@@ -575,13 +600,18 @@ function OrderForm({ searchParams, navigate }) {
         authorization: {
           typedName: typedName.trim(),
           agreedToTerms,
-          agreedToCharge,
+          // An invoice order shows no charge authorization (and no Recurring
+          // Authorization Agreement); it carries the pay-by-invoice terms instead.
+          agreedToCharge: isInvoice ? false : agreedToCharge,
           termsVersion: TERMS_VERSION,
-          recurringTermsVersion: isRecurring ? TERMS_VERSION : null,
+          recurringTermsVersion: isRecurring && !isInvoice ? TERMS_VERSION : null,
           isRecurring,
           authorizedAt: new Date().toISOString(),
           userAgent: navigator.userAgent,
           referer: document.referrer || null,
+          ...(isInvoice
+            ? { agreedToInvoiceTerms, invoiceTermsVersion: INVOICE_TERMS_VERSION }
+            : {}),
         },
       };
 
@@ -616,6 +646,16 @@ function OrderForm({ searchParams, navigate }) {
       }
 
       const { clientSecret, intentType, orderNumber, promoApplied } = await res.json();
+
+      // Pay by invoice: the order is recorded and held for review. There is no
+      // card to confirm.
+      if (isInvoice) {
+        if (intentType !== "none") {
+          throw new Error("We couldn't record your pay-by-invoice request. Please refresh and try again.");
+        }
+        setSuccess({ orderNumber, promoApplied, paymentPreference: PAYMENT_PREFERENCE_INVOICE });
+        return;
+      }
 
       const billingDetails = {
         name: form.customerName,
@@ -656,6 +696,36 @@ function OrderForm({ searchParams, navigate }) {
     : null;
 
   // ── Success State ──
+  if (success?.paymentPreference === PAYMENT_PREFERENCE_INVOICE) {
+    return (
+      <div>
+        <PageMeta title="Order Received | Brian Cline" />
+        <div className="max-w-2xl mx-auto px-6 py-16 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-8 h-8 text-green-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Order received.</h1>
+          <p className="text-gray-600 mb-4">
+            We'll review your pay-by-invoice request and confirm by email. No card was saved.
+          </p>
+          <p className="text-lg font-medium mb-2">
+            Order Number: <span className="font-mono bg-gray-100 px-3 py-1 rounded">{success.orderNumber}</span>
+          </p>
+          {successPromoConfirmation && (
+            <p className="text-sm font-medium text-[#0073a8] mb-2">
+              Promo applied: {successPromoConfirmation}
+            </p>
+          )}
+          <div className="flex gap-3 justify-center mt-8">
+            <Button variant="outline" onClick={() => navigate("/hull-cleaning")}>
+              Back to Estimator
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (success) {
     return (
       <div>
@@ -1019,63 +1089,78 @@ function OrderForm({ searchParams, navigate }) {
         </SectionCard>
 
         {/* Payment — Separate Stripe Elements */}
-        <SectionCard icon={CreditCard} title="Payment Information" description="Your card will be saved on file — not charged now">
-          {/* Card Number */}
-          <div className="mb-4">
-            <Label className="text-sm font-medium text-gray-700 mb-1.5 block">Card Number</Label>
-            <div className="border border-gray-200 rounded-md p-3 bg-white">
-              <CardNumberElement
-                options={STRIPE_ELEMENT_OPTIONS}
-                onChange={(e) => {
-                  setCardState((prev) => ({ ...prev, numberComplete: e.complete }));
-                  setFieldError("number", e.error ? e.error.message : null);
-                }}
-              />
-            </div>
-          </div>
+        <SectionCard
+          icon={CreditCard}
+          title="Payment Information"
+          description={isInvoice
+            ? "No card needed. Pay-by-invoice requests are reviewed before your order is confirmed."
+            : "Your card will be saved on file — not charged now"}
+        >
+          <PaymentPreferenceChoice value={paymentPreference} onChange={choosePaymentPreference} />
 
-          {/* Expiry + CVC side by side */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-1.5 block">Expiration</Label>
-              <div className="border border-gray-200 rounded-md p-3 bg-white">
-                <CardExpiryElement
-                  options={STRIPE_ELEMENT_OPTIONS}
-                  onChange={(e) => {
-                    setCardState((prev) => ({ ...prev, expiryComplete: e.complete }));
-                    setFieldError("expiry", e.error ? e.error.message : null);
-                  }}
-                />
-              </div>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-1.5 block">CVC</Label>
-              <div className="border border-gray-200 rounded-md p-3 bg-white">
-                <CardCvcElement
-                  options={STRIPE_ELEMENT_OPTIONS}
-                  onChange={(e) => {
-                    setCardState((prev) => ({ ...prev, cvcComplete: e.complete }));
-                    setFieldError("cvc", e.error ? e.error.message : null);
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+          <ByPaymentPreference
+            paymentPreference={paymentPreference}
+            card={(
+              <>
+                {/* Card Number */}
+                <div className="mb-4">
+                  <Label className="text-sm font-medium text-gray-700 mb-1.5 block">Card Number</Label>
+                  <div className="border border-gray-200 rounded-md p-3 bg-white">
+                    <CardNumberElement
+                      options={STRIPE_ELEMENT_OPTIONS}
+                      onChange={(e) => {
+                        setCardState((prev) => ({ ...prev, numberComplete: e.complete }));
+                        setFieldError("number", e.error ? e.error.message : null);
+                      }}
+                    />
+                  </div>
+                </div>
 
-          {/* Billing ZIP (plain input, already collected above but Stripe needs it too) */}
-          <div className="mb-4">
-            <Label className="text-sm font-medium text-gray-700 mb-1.5 block">Billing ZIP Code</Label>
-            <Input
-              placeholder="94107"
-              value={form.billingZip}
-              onChange={(e) => updateField("billingZip", e.target.value)}
-              className="max-w-[200px]"
-            />
-          </div>
+                {/* Expiry + CVC side by side */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-1.5 block">Expiration</Label>
+                    <div className="border border-gray-200 rounded-md p-3 bg-white">
+                      <CardExpiryElement
+                        options={STRIPE_ELEMENT_OPTIONS}
+                        onChange={(e) => {
+                          setCardState((prev) => ({ ...prev, expiryComplete: e.complete }));
+                          setFieldError("expiry", e.error ? e.error.message : null);
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-1.5 block">CVC</Label>
+                    <div className="border border-gray-200 rounded-md p-3 bg-white">
+                      <CardCvcElement
+                        options={STRIPE_ELEMENT_OPTIONS}
+                        onChange={(e) => {
+                          setCardState((prev) => ({ ...prev, cvcComplete: e.complete }));
+                          setFieldError("cvc", e.error ? e.error.message : null);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
 
-          {cardError && (
-            <p className="text-red-500 text-sm mt-2">{cardError}</p>
-          )}
+                {/* Billing ZIP (plain input, already collected above but Stripe needs it too) */}
+                <div className="mb-4">
+                  <Label className="text-sm font-medium text-gray-700 mb-1.5 block">Billing ZIP Code</Label>
+                  <Input
+                    placeholder="94107"
+                    value={form.billingZip}
+                    onChange={(e) => updateField("billingZip", e.target.value)}
+                    className="max-w-[200px]"
+                  />
+                </div>
+
+                {cardError && (
+                  <p className="text-red-500 text-sm mt-2">{cardError}</p>
+                )}
+              </>
+            )}
+          />
 
           {/* Cloudflare Turnstile (renders only when VITE_TURNSTILE_SITE_KEY is configured). */}
           {TURNSTILE_SITE_KEY && (
@@ -1089,7 +1174,10 @@ function OrderForm({ searchParams, navigate }) {
             <h4 className="font-semibold text-gray-900">Authorization & Service Agreement</h4>
 
             <p className="text-sm text-gray-700">
-              <strong>Billing:</strong> Your card will be charged only after service completion.
+              <strong>Billing:</strong>{" "}
+              {isInvoice
+                ? "If approved, we email an invoice after each visit."
+                : "Your card will be charged only after service completion."}
               {checkoutQuote?.mode === 'exact' && (
                 <> Today's estimate: <span className="font-medium">{formatCurrency(checkoutQuote.amountCents / 100)}</span>.</>
               )}
@@ -1122,7 +1210,7 @@ function OrderForm({ searchParams, navigate }) {
               <label htmlFor="agree-terms" className="text-sm text-gray-700 cursor-pointer leading-snug">
                 I have read and agree to the{" "}
                 <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[#0073a8] underline">Terms of Service</a>
-                {isRecurring && (
+                {isRecurring && !isInvoice && (
                   <>
                     {" "}and{" "}
                     <a href="/recurring-authorization" target="_blank" rel="noopener noreferrer" className="text-[#0073a8] underline">Recurring Authorization Agreement</a>
@@ -1131,26 +1219,34 @@ function OrderForm({ searchParams, navigate }) {
               </label>
             </div>
 
-            <div className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                id="agree-charge"
-                checked={agreedToCharge}
-                onChange={(e) => setAgreedToCharge(e.target.checked)}
-                className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-              />
-              <label htmlFor="agree-charge" className="text-sm text-gray-700 cursor-pointer leading-snug">
-                {isRecurring ? (
-                  <>
-                    I authorize SailorSkills to charge my saved card for <strong>each scheduled service</strong> at the price documented in that service's report. {checkoutQuote?.mode === 'range' && <>Today's estimated first-cleaning range is <strong>{formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</strong>. </>}I understand each charge may include surcharges for heavy growth or extra anodes, documented with photos. I can cancel any time before the next service by emailing diving@briancline.co.
-                  </>
-                ) : (
-                  <>
-                    I authorize SailorSkills to save my card and charge it for this service at the price documented in the service report. {checkoutQuote?.mode === 'range' && <>Today's estimated range is <strong>{formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</strong>. </>}The final price may vary based on conditions found.
-                  </>
-                )}
-              </label>
-            </div>
+            <ByPaymentPreference
+              paymentPreference={paymentPreference}
+              invoice={(
+                <InvoiceTermsAgreement checked={agreedToInvoiceTerms} onChange={setAgreedToInvoiceTerms} />
+              )}
+              card={(
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="agree-charge"
+                    checked={agreedToCharge}
+                    onChange={(e) => setAgreedToCharge(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <label htmlFor="agree-charge" className="text-sm text-gray-700 cursor-pointer leading-snug">
+                    {isRecurring ? (
+                      <>
+                        I authorize SailorSkills to charge my saved card for <strong>each scheduled service</strong> at the price documented in that service's report. {checkoutQuote?.mode === 'range' && <>Today's estimated first-cleaning range is <strong>{formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</strong>. </>}I understand each charge may include surcharges for heavy growth or extra anodes, documented with photos. I can cancel any time before the next service by emailing diving@briancline.co.
+                      </>
+                    ) : (
+                      <>
+                        I authorize SailorSkills to save my card and charge it for this service at the price documented in the service report. {checkoutQuote?.mode === 'range' && <>Today's estimated range is <strong>{formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</strong>. </>}The final price may vary based on conditions found.
+                      </>
+                    )}
+                  </label>
+                </div>
+              )}
+            />
 
             <Field label="Type your full legal name to authorize" required>
               <Input
@@ -1201,11 +1297,12 @@ function OrderForm({ searchParams, navigate }) {
           if (!form.billingZip) missing.push("ZIP");
           if (!boatBerthOk) missing.push("Boat berthed in Berkeley Marina");
           if (!frequencyChosen) missing.push("Service frequency");
-          if (!cardState.numberComplete) missing.push("Card number");
-          if (!cardState.expiryComplete) missing.push("Card expiration");
-          if (!cardState.cvcComplete) missing.push("Card CVC");
+          if (!isInvoice && !cardState.numberComplete) missing.push("Card number");
+          if (!isInvoice && !cardState.expiryComplete) missing.push("Card expiration");
+          if (!isInvoice && !cardState.cvcComplete) missing.push("Card CVC");
           if (!agreedToTerms) missing.push("Terms of Service checkbox");
-          if (!agreedToCharge) missing.push("Charge authorization checkbox");
+          if (!isInvoice && !agreedToCharge) missing.push("Charge authorization checkbox");
+          if (isInvoice && !agreedToInvoiceTerms) missing.push("Pay-by-invoice terms checkbox");
           if (form.customerName && !typedNameMatches) missing.push("Typed name matching the name above");
           if (TURNSTILE_SITE_KEY && !turnstileToken) missing.push("Verification");
           if (missing.length === 0) return null;
@@ -1240,7 +1337,7 @@ function OrderForm({ searchParams, navigate }) {
               </>
             ) : (
               <>
-                Authorize & Save Card
+                {isInvoice ? "Submit Order Request" : "Authorize & Save Card"}
                 <ArrowRight className="w-5 h-5 ml-2" />
               </>
             )}
