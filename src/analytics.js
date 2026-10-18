@@ -184,6 +184,9 @@ function sanitizeSdkProperties(properties, key) {
     sanitized.$time = properties.$time;
   }
   if (properties.$process_person_profile === false) sanitized.$process_person_profile = false;
+  // Super property from register({ internal: true }); lets Brian's own visits
+  // and test loops be filtered out in PostHog.
+  if (properties.internal === true) sanitized.internal = true;
   // Coarse device breakdown for funnels (mobile vs desktop drop-off). Versions,
   // screen sizes, timezone and the raw user agent are fingerprinting surface and
   // are dropped.
@@ -296,6 +299,35 @@ export function analyticsBlockedReason({ navigator: nav, window: win } = {}) {
   return '';
 }
 
+export const INTERNAL_STORAGE_KEY = 'ss_internal';
+
+/**
+ * True for Brian's own and test traffic. `?internal=1` marks this browser
+ * (persisted in localStorage), `?internal=0` clears it, otherwise the stored
+ * `ss_internal=1` decides. Never throws: a blocked storage just reads false.
+ */
+export function internalTrafficFlag({ location, storage } = {}) {
+  let param = null;
+  try {
+    param = new URLSearchParams(location?.search || '').get('internal');
+  } catch {
+    param = null;
+  }
+  try {
+    if (param === '1') {
+      storage?.setItem(INTERNAL_STORAGE_KEY, '1');
+      return true;
+    }
+    if (param === '0') {
+      storage?.removeItem(INTERNAL_STORAGE_KEY);
+      return false;
+    }
+    return storage?.getItem(INTERNAL_STORAGE_KEY) === '1';
+  } catch {
+    return param === '1';
+  }
+}
+
 /** The posthog.init config. Pure and exported so the privacy pins are tested. */
 export function buildPosthogConfig({ apiHost, getCurrentUrl, beforeSend }) {
   return {
@@ -346,6 +378,7 @@ export function createAnalytics({
   getLocation = () => globalThis.location,
   getNavigator = () => globalThis.navigator,
   getWindow = () => globalThis.window,
+  getStorage = () => globalThis.localStorage,
 } = {}) {
   const key = trimmed(env?.VITE_POSTHOG_KEY);
   const apiHost = trimmed(env?.VITE_POSTHOG_HOST) || DEFAULT_POSTHOG_HOST;
@@ -431,6 +464,13 @@ export function createAnalytics({
       return false;
     }
 
+    let internal = false;
+    try {
+      internal = internalTrafficFlag({ location: getLocation(), storage: getStorage() });
+    } catch {
+      internal = false;
+    }
+
     state = 'loading';
     ready = Promise.resolve()
       .then(() => loadSdk())
@@ -445,6 +485,7 @@ export function createAnalytics({
           beforeSend: scrubEnrichedEvent,
         }));
         if (initResult && typeof initResult.catch === 'function') initResult.catch(() => {});
+        if (internal && typeof instance.register === 'function') instance.register({ internal: true });
         sdk = instance;
         state = 'ready';
         for (const item of queue.splice(0)) send(item.event, item.properties, item.timestamp);
