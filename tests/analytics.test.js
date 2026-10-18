@@ -36,6 +36,9 @@ function createSdk() {
     register(props) {
       calls.registers = [...(calls.registers || []), props];
     },
+    unregister(name) {
+      calls.unregisters = [...(calls.unregisters || []), name];
+    },
     init(key, options) {
       calls.inits.push({ key, options });
     },
@@ -500,6 +503,17 @@ describe('internal traffic flag', () => {
     publicRun.analytics.initialize();
     await publicRun.analytics.whenReady();
     expect(publicRun.sdk.calls.registers).toBeUndefined();
+    expect(publicRun.sdk.calls.unregisters).toStrictEqual(['internal']);
+
+    // ?internal=0 on a previously marked browser: flag cleared, nothing
+    // registered, and the persisted super property is dropped.
+    const storage = memoryStorage({ ss_internal: '1' });
+    const clearedRun = setup({ location: at('?internal=0'), storage });
+    clearedRun.analytics.initialize();
+    await clearedRun.analytics.whenReady();
+    expect(storage.data.has('ss_internal')).toBe(false);
+    expect(clearedRun.sdk.calls.registers).toBeUndefined();
+    expect(clearedRun.sdk.calls.unregisters).toStrictEqual(['internal']);
 
     const scrub = internalRun.sdk.calls.inits[0].options.before_send;
     const out = scrub({
