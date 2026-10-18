@@ -86,7 +86,8 @@ export default function HullCleaningCost() {
     <div className="min-h-screen bg-white">
       <PageMeta
         title={`Hull Cleaning Cost at Berkeley Marina (${AS_OF}): ${money(RATES.recurring)}/ft | Brian Cline Diving and Hull Cleaning`}
-        description={`What it costs to have a diver clean your hull at Berkeley Marina: ${money(RATES.recurring)} per foot recurring, ${money(RATES.onetime)} per foot one-time, ${money(RATES.minimum)} minimum. Price table by boat length, surcharges, and an instant estimator.`}
+        // Kept at 160 characters or fewer (Bing flags longer descriptions).
+        description={`Hull cleaning cost at Berkeley Marina: ${money(RATES.recurring)}/ft recurring, ${money(RATES.onetime)}/ft one-time, ${money(RATES.minimum)} minimum. Price table by boat length, surcharges and an instant estimate.`}
         canonical="/hull-cleaning/cost"
       />
       <JsonLd data={businessJsonLd()} />

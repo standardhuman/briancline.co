@@ -1,5 +1,7 @@
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React, { useEffect, useRef } from "react";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { sanitizeAttribution } from "../analytics.js";
+import { track } from "./lib/analytics";
 import ServiceLayout from "./components/ServiceLayout";
 import ScrollToTop from "./components/ScrollToTop";
 import Marine from "./pages/Marine";
@@ -13,9 +15,29 @@ import Detailing from "./pages/Detailing";
 import Terms from "./pages/Terms";
 import RecurringAuthorization from "./pages/RecurringAuthorization";
 
+// Manual $pageview on every SPA route change (PostHog's automatic pageview only
+// sees hard loads). Only allowlisted UTM params are kept from the query string;
+// the external referrer hostname is attached to the first pageview only.
+export function ServicesAnalyticsTracker({ capture = track }) {
+  const location = useLocation();
+  const firstPageviewRef = useRef(true);
+
+  useEffect(() => {
+    const referrer = firstPageviewRef.current ? globalThis.document?.referrer : "";
+    firstPageviewRef.current = false;
+    capture("$pageview", {
+      surface: "services",
+      ...sanitizeAttribution({ search: location.search, referrer }),
+    });
+  }, [capture, location.pathname, location.search]);
+
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <ServicesAnalyticsTracker />
       <ScrollToTop />
       <Routes>
         <Route element={<ServiceLayout />}>

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -12,6 +12,7 @@ import OptImage from "../components/OptImage";
 import ConditionsPricing from "../components/ConditionsPricing";
 import HowPricingWorks from "../components/HowPricingWorks";
 import { businessJsonLd, serviceJsonLd } from "../lib/hull-cleaning-public";
+import { createCalculatorTracker, ESTIMATOR_NAV_STATE } from "../lib/analytics";
 import {
   Ruler, Ship, Sailboat, CalendarDays, Paintbrush, Clock, Wrench,
   Calculator, ListChecks, CheckCircle2, HelpCircle, ArrowRight, Info, Anchor,
@@ -143,6 +144,10 @@ const FAQS = [
     a: "Yes, anodes are an additional charge. You can provide your own or I'll supply them at roughly chandlery prices plus tax. There's a $15 installation fee per anode.",
   },
   {
+    q: "How do you decide if my anode needs replacing?",
+    a: "I check the anode every time I clean your hull and replace it if it's worn. You don't have to ask: it shows up in your service report, and I shoot before-and-after video of every cleaning, so you can see the anode and prop condition yourself. If it needs replacing, that's an additional charge: $15 to install, and you can supply your own zinc or I'll supply one at roughly chandlery prices plus tax.",
+  },
+  {
     q: "Can you provide an estimate before beginning work?",
     a: "If your boat is in my service area, I'm happy to stop by for a look and present you with options before your first service — so there are no surprises.",
   },
@@ -216,7 +221,7 @@ function InputCard({ icon: Icon, title, description, children, visible = true })
 }
 
 // ── Estimate Card ──
-function EstimateCard({ estimate, boatLength, boatType, hullType, frequency, serviceKey, propellerCount, paintAge, lastCleaned, anodeCount }) {
+function EstimateCard({ estimate, boatLength, boatType, hullType, frequency, serviceKey, propellerCount, paintAge, lastCleaned, anodeCount, onGetStarted }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const service = SERVICES[serviceKey];
@@ -247,7 +252,10 @@ function EstimateCard({ estimate, boatLength, boatType, hullType, frequency, ser
     // into the order form without the customer re-entering it.
     const promo = searchParams.get("promo");
     if (promo) params.set("promo", promo);
-    navigate(`/hull-cleaning/order?${params.toString()}`);
+    onGetStarted?.();
+    // Navigation state (not a URL param) tells the order form's analytics the
+    // visitor came from this estimator.
+    navigate(`/hull-cleaning/order?${params.toString()}`, { state: ESTIMATOR_NAV_STATE });
   };
 
   return (
@@ -368,11 +376,30 @@ export default function Diving() {
     [serviceKey, boatLength, boatType, hullType, frequency, propellerCount, paintAge, lastCleaned, anodeCount]
   );
 
+  // Funnel analytics (no-op without a PostHog key): calculator_started on the
+  // first input change, calculator_completed once length + conditions are set
+  // or on "Get Started". Once per page view; see lib/analytics.js.
+  const analyticsSnapshotRef = useRef(null);
+  analyticsSnapshotRef.current = {
+    serviceKey, boatLength, boatType, hullType, frequency, estimateTotal: estimate?.total, visibility: vis,
+  };
+  const calculatorTrackerRef = useRef(null);
+  if (!calculatorTrackerRef.current) {
+    calculatorTrackerRef.current = createCalculatorTracker({ getSnapshot: () => analyticsSnapshotRef.current });
+  }
+  useEffect(() => {
+    calculatorTrackerRef.current.observe({
+      serviceKey, boatLength, boatType, hullType, frequency, propellerCount, paintAge, lastCleaned, anodeCount,
+    });
+  }, [serviceKey, boatLength, boatType, hullType, frequency, propellerCount, paintAge, lastCleaned, anodeCount]);
+  useEffect(() => () => calculatorTrackerRef.current?.dispose(), []);
+
   return (
     <div>
       <PageMeta
         title={`Hull Cleaning at Berkeley Marina: $${RATES.recurring.toFixed(2)}/ft | Brian Cline Diving and Hull Cleaning`}
-        description={`Underwater hull cleaning at Berkeley Marina, California: $${RATES.recurring.toFixed(2)} per foot on a recurring plan, $${RATES.onetime.toFixed(2)} per foot one-time, $${RATES.minimum} minimum per visit. Instant estimate, before/after video, transparent pricing. Currently serving Berkeley Marina only; referrals for other Bay Area marinas.`}
+        // Kept at 160 characters or fewer (Bing flags longer descriptions).
+        description={`$${RATES.recurring.toFixed(2)}/ft recurring, $${RATES.onetime.toFixed(2)}/ft one-time, $${RATES.minimum} minimum: underwater hull cleaning at Berkeley Marina, CA. Instant estimate and before/after video.`}
         canonical="/hull-cleaning"
       />
       <JsonLd data={businessJsonLd()} />
@@ -651,6 +678,7 @@ export default function Diving() {
                 paintAge={paintAge}
                 lastCleaned={lastCleaned}
                 anodeCount={anodeCount}
+                onGetStarted={() => calculatorTrackerRef.current.getStarted()}
               />
             </div>
           </div>

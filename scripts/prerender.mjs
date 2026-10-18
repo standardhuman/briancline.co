@@ -94,8 +94,22 @@ async function prerender() {
     process.exit(1);
   }
   const context = await browser.newContext();
+  // Analytics must never run while prerendering: src/analytics.js skips init
+  // (and never loads posthog-js) when this flag is set. navigator.webdriver,
+  // which Playwright sets, is a second guard.
+  await context.addInitScript(() => { window.__BC_PRERENDER__ = true; });
 
   const failures = [];
+  const analyticsRequests = [];
+  const analyticsHost = (() => {
+    try { return process.env.VITE_POSTHOG_HOST ? new URL(process.env.VITE_POSTHOG_HOST).host : ''; } catch { return ''; }
+  })();
+  context.on('request', (request) => {
+    const url = request.url();
+    if (/posthog/i.test(url) || (analyticsHost && new URL(url).host === analyticsHost)) {
+      analyticsRequests.push(url);
+    }
+  });
 
   for (const route of ROUTES) {
     const page = await context.newPage();
@@ -128,6 +142,7 @@ async function prerender() {
   // Verify output: every route must have produced a file with a route-specific
   // <title>. The generic services.html title means React never rendered.
   const GENERIC_TITLE = 'Marine Services | Brian Cline';
+  const DESCRIPTION_LIMIT_ROUTES = new Set(['/hull-cleaning', '/hull-cleaning/cost']);
   for (const route of ROUTES) {
     const file = resolve(DIST, route.slice(1), 'index.html');
     if (!existsSync(file)) {
@@ -139,6 +154,18 @@ async function prerender() {
     if (canonicals.length !== 1 || canonicals[0] !== `https://briancline.co${route}`) {
       failures.push(`${route} — canonical ${JSON.stringify(canonicals)} does not point at itself`);
     }
+    // Bing Webmaster Tools flags meta descriptions over 160 characters. Enforced
+    // on the hull-cleaning pages (other routes are not yet within the limit).
+    if (DESCRIPTION_LIMIT_ROUTES.has(route)) {
+      const description = (html.match(/<meta name="description" content="([^"]*)"/i) || [])[1] || '';
+      const length = description.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").length;
+      if (!description || length > 160) {
+        failures.push(`${route} — meta description is ${length} characters (limit 160)`);
+      }
+    }
+    if (/posthog/i.test(html)) {
+      failures.push(`${route} — prerendered HTML references PostHog (analytics ran during prerender)`);
+    }
     const match = html.match(/<title>([^<]*)<\/title>/i);
     const title = match ? match[1].trim() : '';
     if (!title) {
@@ -146,6 +173,10 @@ async function prerender() {
     } else if (title === GENERIC_TITLE) {
       failures.push(`${route} — generic <title> "${title}" (React did not render)`);
     }
+  }
+
+  if (analyticsRequests.length > 0) {
+    failures.push(`analytics requests during prerender: ${[...new Set(analyticsRequests)].join(', ')}`);
   }
 
   if (failures.length > 0) {
