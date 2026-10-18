@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
@@ -12,6 +12,7 @@ import { SERVICES, conditionPriceRange, estimateScale, PAINT_AGE_OPTIONS, LAST_C
 import { deriveCheckoutQuote } from "../lib/checkout-quote";
 import { resolveScaleMarkerPrice } from "../lib/order-marker";
 import { promoCodeForSubmission, promoConfirmation, promoPreviewFor } from "../lib/service-promo";
+import { createOrderTracker, orderStartSource } from "../lib/analytics";
 import PageMeta from "../components/PageMeta";
 import ConditionsPricing from "../components/ConditionsPricing";
 import EstimateScale from "../components/EstimateScale";
@@ -395,9 +396,35 @@ function OrderForm({ searchParams, navigate }) {
   const cardError = cardErrors.number || cardErrors.expiry || cardErrors.cvc;
   const [turnstileToken, setTurnstileToken] = useState("");
 
-  const updateField = useCallback((field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  // Funnel analytics (no-op without a PostHog key). order_started fires on
+  // mount for a prefilled/estimator visit, else on the first interaction;
+  // order_submitted only after the order actually succeeds. No form values are
+  // ever sent: service and frequency only.
+  const location = useLocation();
+  const orderAnalyticsContextRef = useRef(null);
+  orderAnalyticsContextRef.current = { service: serviceKey, frequency: form.frequency };
+  const orderTrackerRef = useRef(null);
+  if (!orderTrackerRef.current) {
+    orderTrackerRef.current = createOrderTracker({
+      source: orderStartSource({ state: location.state, searchParams }),
+      getContext: () => orderAnalyticsContextRef.current,
+    });
+  }
+  useEffect(() => {
+    orderTrackerRef.current.mounted();
   }, []);
+  const markOrderInteraction = useCallback(() => {
+    orderTrackerRef.current.interacted();
+  }, []);
+  const handleFormClick = useCallback((e) => {
+    // Safari does not focus buttons on click, so count clicks on controls too.
+    if (e.target?.closest?.("button, input, select, textarea, label, [role]")) markOrderInteraction();
+  }, [markOrderInteraction]);
+
+  const updateField = useCallback((field, value) => {
+    markOrderInteraction();
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }, [markOrderInteraction]);
 
   const estimateAmount = initialEstimate ? parseInt(initialEstimate) : null;
 
@@ -538,6 +565,8 @@ function OrderForm({ searchParams, navigate }) {
     setIsSubmitting(true);
     setError(null);
     setPromoError(null);
+    // Which step a failure happened at, for the order_failed event.
+    let analyticsStep = "payment-intent";
 
     try {
       const cardNumberElement = elements.getElement(CardNumberElement);
@@ -649,11 +678,13 @@ function OrderForm({ searchParams, navigate }) {
 
       // Pay by invoice: the order is recorded and held for review. There is no
       // card to confirm.
+      analyticsStep = isInvoice ? "invoice-record" : "stripe-confirmation";
       if (isInvoice) {
         if (intentType !== "none") {
           throw new Error("We couldn't record your pay-by-invoice request. Please refresh and try again.");
         }
         setSuccess({ orderNumber, promoApplied, paymentPreference: PAYMENT_PREFERENCE_INVOICE });
+        orderTrackerRef.current.submitted("invoice");
         return;
       }
 
@@ -684,10 +715,12 @@ function OrderForm({ searchParams, navigate }) {
       if (result.error) throw result.error;
 
       setSuccess({ orderNumber, promoApplied });
+      orderTrackerRef.current.submitted("card");
     } catch (err) {
       console.error("Order submission error:", err);
       setError(err.message || "Something went wrong. Please try again.");
       setIsSubmitting(false);
+      orderTrackerRef.current.failed(analyticsStep);
     }
   };
 
@@ -798,7 +831,7 @@ function OrderForm({ searchParams, navigate }) {
       <div className="max-w-6xl mx-auto px-6 pb-16">
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
       {/* Left: Form */}
-      <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-6">
+      <form onSubmit={handleSubmit} onFocus={markOrderInteraction} onClick={handleFormClick} className="lg:col-span-3 space-y-6">
         {/* Boat Details (hidden for item recovery) */}
         {showBoatInfo && (
           <SectionCard icon={Ship} title="Boat Details" description="Tell us about your vessel">

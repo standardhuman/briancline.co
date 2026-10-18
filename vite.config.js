@@ -42,6 +42,14 @@ export default defineConfig({
         'perimeter-supervisor': resolve(__dirname, 'projects/perimeter-supervisor.html'),
         'podcast-renamer': resolve(__dirname, 'projects/podcast-renamer.html'),
       },
+      output: {
+        // posthog-js is only ever dynamically imported (src/analytics.js); a
+        // named chunk keeps it out of the entry bundles and lets
+        // scripts/prerender.mjs assert it is never fetched while prerendering.
+        manualChunks(id) {
+          if (id.includes('/node_modules/posthog-js/')) return 'posthog'
+        },
+      },
     },
   },
   server: {
