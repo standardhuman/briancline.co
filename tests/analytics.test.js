@@ -505,16 +505,6 @@ describe('internal traffic flag', () => {
     expect(publicRun.sdk.calls.registers).toBeUndefined();
     expect(publicRun.sdk.calls.unregisters).toStrictEqual(['internal']);
 
-    // ?internal=0 on a previously marked browser: flag cleared, nothing
-    // registered, and the persisted super property is dropped.
-    const storage = memoryStorage({ ss_internal: '1' });
-    const clearedRun = setup({ location: at('?internal=0'), storage });
-    clearedRun.analytics.initialize();
-    await clearedRun.analytics.whenReady();
-    expect(storage.data.has('ss_internal')).toBe(false);
-    expect(clearedRun.sdk.calls.registers).toBeUndefined();
-    expect(clearedRun.sdk.calls.unregisters).toStrictEqual(['internal']);
-
     const scrub = internalRun.sdk.calls.inits[0].options.before_send;
     const out = scrub({
       uuid: captureUuid,
@@ -525,5 +515,15 @@ describe('internal traffic flag', () => {
     expect(out.properties.internal).toBe(true);
     expect(out.properties.$current_url).toBe('https://briancline.co/hull-cleaning');
     expect(scrub({ ...out, properties: { ...out.properties, internal: 'yes' } }).properties.internal).toBeUndefined();
+  });
+
+  it('?internal=0 on a previously marked browser clears the flag and unregisters the persisted property', async () => {
+    const storage = memoryStorage({ ss_internal: '1' });
+    const clearedRun = setup({ location: at('?internal=0'), storage });
+    clearedRun.analytics.initialize();
+    await clearedRun.analytics.whenReady();
+    expect(storage.data.has('ss_internal')).toBe(false);
+    expect(clearedRun.sdk.calls.registers).toBeUndefined();
+    expect(clearedRun.sdk.calls.unregisters).toStrictEqual(['internal']);
   });
 });
