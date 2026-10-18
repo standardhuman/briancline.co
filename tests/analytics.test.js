@@ -11,6 +11,7 @@ import {
   buildPosthogConfig,
   createAnalytics,
   estimateBucket,
+  internalTrafficFlag,
   lengthBucket,
   normalizeFrequency,
   normalizeServiceKey,
@@ -32,6 +33,9 @@ function createSdk() {
   const calls = { inits: [], captures: [] };
   return {
     calls,
+    register(props) {
+      calls.registers = [...(calls.registers || []), props];
+    },
     init(key, options) {
       calls.inits.push({ key, options });
     },
@@ -41,7 +45,17 @@ function createSdk() {
   };
 }
 
-function setup({ env = { VITE_POSTHOG_KEY: 'phc_test' }, nav = {}, win = {}, location = orderLocation, sdk = createSdk() } = {}) {
+function memoryStorage(initial = {}) {
+  const data = new Map(Object.entries(initial));
+  return {
+    data,
+    getItem: (k) => (data.has(k) ? data.get(k) : null),
+    setItem: (k, v) => data.set(k, String(v)),
+    removeItem: (k) => data.delete(k),
+  };
+}
+
+function setup({ env = { VITE_POSTHOG_KEY: 'phc_test' }, nav = {}, win = {}, location = orderLocation, sdk = createSdk(), storage = memoryStorage() } = {}) {
   const loadSdk = vi.fn(async () => ({ default: sdk }));
   const analytics = createAnalytics({
     loadSdk,
@@ -49,6 +63,7 @@ function setup({ env = { VITE_POSTHOG_KEY: 'phc_test' }, nav = {}, win = {}, loc
     getLocation: () => location,
     getNavigator: () => nav,
     getWindow: () => win,
+    getStorage: () => storage,
   });
   return { analytics, loadSdk, sdk };
 }
@@ -448,5 +463,53 @@ describe('funnel buckets', () => {
       .toStrictEqual(['one_time', 'one_time', 'one_time', 'monthly', 'bimonthly', 'quarterly', 'unset', 'unset']);
     expect(['cleaning', 'recurring_cleaning', 'running_gear', 'item_recovery', 'Ada', undefined].map(normalizeServiceKey))
       .toStrictEqual(['cleaning', 'cleaning', 'running_gear', 'item_recovery', 'other', 'other']);
+  });
+});
+
+describe('internal traffic flag', () => {
+  const at = (search) => ({ origin: 'https://briancline.co', pathname: '/hull-cleaning', search, hash: '' });
+
+  it('?internal=1 marks and persists, ?internal=0 clears, otherwise storage decides', () => {
+    const storage = memoryStorage();
+    expect(internalTrafficFlag({ location: at(''), storage })).toBe(false);
+    expect(internalTrafficFlag({ location: at('?internal=1'), storage })).toBe(true);
+    expect(storage.data.get('ss_internal')).toBe('1');
+    expect(internalTrafficFlag({ location: at(''), storage })).toBe(true);
+    expect(internalTrafficFlag({ location: at('?internal=0'), storage })).toBe(false);
+    expect(storage.data.has('ss_internal')).toBe(false);
+  });
+
+  it('survives blocked storage', () => {
+    const storage = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); }, removeItem() {} };
+    expect(internalTrafficFlag({ location: at('?internal=1'), storage })).toBe(true);
+    expect(internalTrafficFlag({ location: at(''), storage })).toBe(false);
+  });
+
+  it('registers internal=true only for internal traffic, and before_send keeps it', async () => {
+    const internalRun = setup({ location: at('?internal=1') });
+    internalRun.analytics.initialize();
+    await internalRun.analytics.whenReady();
+    expect(internalRun.sdk.calls.registers).toStrictEqual([{ internal: true }]);
+
+    const storedRun = setup({ location: at(''), storage: memoryStorage({ ss_internal: '1' }) });
+    storedRun.analytics.initialize();
+    await storedRun.analytics.whenReady();
+    expect(storedRun.sdk.calls.registers).toStrictEqual([{ internal: true }]);
+
+    const publicRun = setup({ location: at('') });
+    publicRun.analytics.initialize();
+    await publicRun.analytics.whenReady();
+    expect(publicRun.sdk.calls.registers).toBeUndefined();
+
+    const scrub = internalRun.sdk.calls.inits[0].options.before_send;
+    const out = scrub({
+      uuid: captureUuid,
+      event: '$pageview',
+      timestamp: captureTimestamp,
+      properties: { surface: 'services', internal: true, $current_url: 'https://briancline.co/hull-cleaning?internal=1' },
+    });
+    expect(out.properties.internal).toBe(true);
+    expect(out.properties.$current_url).toBe('https://briancline.co/hull-cleaning');
+    expect(scrub({ ...out, properties: { ...out.properties, internal: 'yes' } }).properties.internal).toBeUndefined();
   });
 });
