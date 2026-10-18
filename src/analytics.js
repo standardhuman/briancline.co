@@ -485,7 +485,13 @@ export function createAnalytics({
           beforeSend: scrubEnrichedEvent,
         }));
         if (initResult && typeof initResult.catch === 'function') initResult.catch(() => {});
-        if (internal && typeof instance.register === 'function') instance.register({ internal: true });
+        // posthog-js persists super properties in its own storage, so a browser
+        // un-marked with ?internal=0 must also drop the property it registered.
+        if (internal) {
+          if (typeof instance.register === 'function') instance.register({ internal: true });
+        } else if (typeof instance.unregister === 'function') {
+          instance.unregister('internal');
+        }
         sdk = instance;
         state = 'ready';
         for (const item of queue.splice(0)) send(item.event, item.properties, item.timestamp);
