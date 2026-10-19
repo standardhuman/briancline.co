@@ -4,8 +4,10 @@
 // bundle and vitest can both import this module unchanged.
 //
 // Two independent pieces, each rendered only when its link exists:
-//   1. Button to the boat owner's SailorSkills portal:
-//        https://sailorskills.com/boat/<share_token>?src=email
+//   1. Button to the boat owner's SailorSkills portal, through Pro's tracked
+//      redirect (same link Pro's own emails use, click source "account"):
+//        https://pro.sailorskills.com/p/<share_token>?s=account
+//      which 302s to https://sailorskills.com/boat/<share_token>?src=email.
 //      Needs boats.share_token. The webhook never mints a token; no token
 //      means no button.
 //   2. Fine print with the signed plan cancel link (plan-cancel-token.ts).
@@ -13,7 +15,7 @@
 //      A null cancel URL means no fine print.
 // Non-recurring orders render nothing.
 
-export const PORTAL_ORIGIN = 'https://sailorskills.com'
+export const PORTAL_REDIRECT_ORIGIN = 'https://pro.sailorskills.com'
 
 export function escapeHtmlAttr(value: string): string {
   return value
@@ -28,7 +30,7 @@ export function escapeHtmlAttr(value: string): string {
 export function buildPortalEmailUrl(shareToken: string | null | undefined): string | null {
   const token = typeof shareToken === 'string' ? shareToken.trim() : ''
   if (!token) return null
-  return `${PORTAL_ORIGIN}/boat/${encodeURIComponent(token)}?src=email`
+  return `${PORTAL_REDIRECT_ORIGIN}/p/${encodeURIComponent(token)}?s=account`
 }
 
 export interface PlanManageBlockInput {

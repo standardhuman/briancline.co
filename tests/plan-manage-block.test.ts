@@ -7,7 +7,7 @@ import {
 } from '../supabase/functions/_shared/plan-manage-block.ts'
 
 const SHARE_TOKEN = '0123456789abcdef0123456789abcdef'
-const PORTAL_URL = `https://sailorskills.com/boat/${SHARE_TOKEN}?src=email`
+const PORTAL_URL = `https://pro.sailorskills.com/p/${SHARE_TOKEN}?s=account`
 const CANCEL_URL =
   'https://pro.example.com/cancel/00000000-0000-0000-0000-000000000001.U_HYGd-XbArJsRNbyDSA7a5xRNR1ZG44BakvOl4cZto'
 
@@ -29,7 +29,7 @@ describe('renderPlanManageBlock', () => {
     for (const shareToken of [null, undefined, '', '   ']) {
       const html = renderPlanManageBlock({ isRecurring: true, shareToken, planCancelUrl: CANCEL_URL })
       expect(html).not.toContain('Manage your account')
-      expect(html).not.toContain('sailorskills.com/boat/')
+      expect(html).not.toContain('pro.sailorskills.com/p/')
       expect(html).toContain('You can cancel your plan anytime')
       expect(html).toContain(`href="${CANCEL_URL}"`)
     }
@@ -70,14 +70,14 @@ describe('renderPlanManageBlock', () => {
       shareToken: 'a"b<c',
       planCancelUrl: 'https://x.test/cancel/t?a=1&b="2"<script>',
     })
-    expect(html).toContain('href="https://sailorskills.com/boat/a%22b%3Cc?src=email"')
+    expect(html).toContain('href="https://pro.sailorskills.com/p/a%22b%3Cc?s=account"')
     expect(html).toContain('href="https://x.test/cancel/t?a=1&amp;b=&quot;2&quot;&lt;script&gt;"')
     expect(html).not.toContain('<script>')
   })
 })
 
 describe('buildPortalEmailUrl / escapeHtmlAttr', () => {
-  test('portal URL uses share_token and src=email', () => {
+  test('portal URL uses Pro tracked redirect with s=account', () => {
     expect(buildPortalEmailUrl(` ${SHARE_TOKEN} `)).toBe(PORTAL_URL)
     expect(buildPortalEmailUrl(null)).toBeNull()
   })
