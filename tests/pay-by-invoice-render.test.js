@@ -111,6 +111,15 @@ describe('DivingOrder pay-by-invoice wiring', () => {
     expect(source).toContain('Order received.');
   });
 
+  it('preselects Pay by invoice only for ?payment=invoice', () => {
+    expect(source).toMatch(/searchParams\.get\("payment"\) === PAYMENT_PREFERENCE_INVOICE \? PAYMENT_PREFERENCE_INVOICE : PAYMENT_PREFERENCE_CARD/);
+  });
+
+  it('says invoiced, not charged, in the summary when invoicing', () => {
+    expect(source).toContain('{isInvoice ? "Invoiced after each visit" : "Charged after service completion"}');
+    expect(source).toMatch(/isInvoice=\{isInvoice\}/);
+  });
+
   it('resets card completeness when the preference changes', () => {
     const chooser = source.slice(source.indexOf('const choosePaymentPreference'), source.indexOf('}, []);', source.indexOf('const choosePaymentPreference')));
     expect(chooser).toContain('setCardState({ numberComplete: false, expiryComplete: false, cvcComplete: false });');

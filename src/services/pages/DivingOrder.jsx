@@ -136,7 +136,7 @@ function Field({ label, required, children, className }) {
 }
 
 // ── Floating Profile Card ──
-function ProfileCard({ form, service, checkoutQuote, isItemRecovery, showFrequency }) {
+function ProfileCard({ form, service, checkoutQuote, isItemRecovery, showFrequency, isInvoice }) {
   const boatTypeInfo = BOAT_TYPES.find((t) => t.value === form.boatType);
   const frequencyInfo = FREQUENCIES.find((f) => f.value === form.frequency);
 
@@ -238,7 +238,7 @@ function ProfileCard({ form, service, checkoutQuote, isItemRecovery, showFrequen
                 ? `${formatCurrency(checkoutQuote.minCents / 100)}–${formatCurrency(checkoutQuote.maxCents / 100)}`
                 : formatCurrency(checkoutQuote.amountCents / 100)}
             </p>
-            <p className="text-white/50 text-xs mt-1">Charged after service completion</p>
+            <p className="text-white/50 text-xs mt-1">{isInvoice ? "Invoiced after each visit" : "Charged after service completion"}</p>
           </div>
         )}
 
@@ -371,7 +371,11 @@ function OrderForm({ searchParams, navigate }) {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [agreedToCharge, setAgreedToCharge] = useState(false);
   // "card" (default, today's flow) or "invoice" (pay by invoice, requires approval).
-  const [paymentPreference, setPaymentPreference] = useState(PAYMENT_PREFERENCE_CARD);
+  // ?payment=invoice preselects Pay by invoice (for links sent to customers
+  // who asked to be invoiced); anything else keeps the card default.
+  const [paymentPreference, setPaymentPreference] = useState(
+    searchParams.get("payment") === PAYMENT_PREFERENCE_INVOICE ? PAYMENT_PREFERENCE_INVOICE : PAYMENT_PREFERENCE_CARD,
+  );
   const [agreedToInvoiceTerms, setAgreedToInvoiceTerms] = useState(false);
   const [typedName, setTypedName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1361,6 +1365,7 @@ function OrderForm({ searchParams, navigate }) {
             checkoutQuote={checkoutQuote}
             isItemRecovery={isItemRecovery}
             showFrequency={showFrequency}
+            isInvoice={isInvoice}
           />
         </div>
       </div>
