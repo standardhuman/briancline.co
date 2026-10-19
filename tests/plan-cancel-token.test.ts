@@ -60,9 +60,9 @@ describe('recurring confirmation email cancel link', () => {
     expect(webhookSource).toMatch(
       /const planCancelUrl = isRecurring && typeof order\.boat_id === 'string' && order\.boat_id\s*\?\s*await buildPlanCancelUrl\(order\.boat_id\)/,
     )
-    expect(webhookSource).toContain('const cancelLine = (isRecurring && planCancelUrl)')
+    // Rendered as fine print under the portal button (see plan-manage-block.test.ts).
     expect(webhookSource).toContain(
-      'Want to stop your plan? Cancel any time: <a href="${planCancelUrl}"',
+      'renderPlanManageBlock({ isRecurring, shareToken, planCancelUrl })',
     )
   })
 })
