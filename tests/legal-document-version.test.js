@@ -12,7 +12,7 @@ import {
 const EXPECTED_VERSION = "2026-11-01";
 const EXPECTED_EFFECTIVE_DATE = "November 1, 2026";
 const EXPECTED_TERMS_HASH =
-  "d60244d12c04093341d3a469a85ef6a500e96cb9969a6eab03a7ff965629cdba";
+  "953107ae46e15a3be4a9c0e9644d9e16a15ebeab368ee50e8e304b64e584cfb1";
 const EXPECTED_RECURRING_HASH =
   "c7bd75e498c0a9bef1701523b8b19b21be3a45b0e2b906119e3055aad3b94365";
 // Published history: must never change.
@@ -93,11 +93,13 @@ describe("legal document version contract", () => {
   });
 
   test("2026-11-01 names the LLC and carries the reworded terms", () => {
-    const terms = TERMS_OF_SERVICE[EXPECTED_VERSION].body;
+    const terms = TERMS_OF_SERVICE[EXPECTED_VERSION].body.replace(/\s+/g, " ");
     const recurring = RECURRING_AUTHORIZATION[EXPECTED_VERSION].body;
 
     expect(terms).toContain("Sailor Skills, LLC");
     expect(terms).toContain("simple interest at 10% per year");
+    expect(terms).toContain("Payment is due within 7 days of the invoice date");
+    expect(terms).not.toContain("due on receipt");
     expect(terms).toContain('"Cancel my plan"');
     expect(terms).toContain("## 12. Redo or Refund");
     expect(recurring).toContain("Sailor Skills, LLC");

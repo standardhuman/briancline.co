@@ -53,9 +53,10 @@ Hull Cleaning ("we" or "us"). You can reach us at diving@briancline.co.
 ## 2. Accepting These Terms
 
 You accept these terms when you check the box at checkout and click
-"Authorize & Save Card", or when you pay an invoice that links to them. Your
-typed name and click count as your electronic signature under the federal
-E-SIGN Act and the California Uniform Electronic Transactions Act.
+"Authorize & Save Card" or, if you choose to pay by invoice, "Submit Order
+Request". You also accept them when you pay an invoice that links to them.
+Your typed name and click count as your electronic signature under the
+federal E-SIGN Act and the California Uniform Electronic Transactions Act.
 
 ## 3. Electronic Records and Notices
 
@@ -129,16 +130,23 @@ include any tax that may apply.
 
 ## 10. Payment
 
-You authorize us to charge the card you save at checkout for each service
-you order, in the amount shown in that service's report. Cards are charged
-when the service is complete. If you choose a recurring plan, the Recurring
-Charge Authorization also applies.
+You choose how to pay at checkout.
 
-Invoices paid another way are due on receipt. A balance unpaid 30 days after
-the invoice date accrues simple interest at 10% per year until paid, and we
-may pause service on that boat until it is current. If you dispute a charge
-with your bank and the dispute is decided in our favor, you still owe the
-amount.
+**Card on file.** You authorize us to charge the card you save at checkout
+for each service you order, in the amount shown in that service's report.
+We charge the card after each visit, once the service is complete. If you
+choose a recurring plan, the Recurring Charge Authorization also applies.
+
+**Pay by invoice.** Paying by invoice requires our approval. We email an
+invoice after each visit, along with your service report. Payment is due
+within 7 days of the invoice date, by Zelle, Venmo, check, or the secure
+card link in the invoice. If a payment is more than 14 days late, we may
+hold your next scheduled service until the balance is paid. If payments run
+late, we may ask for a card on file to continue service.
+
+A balance unpaid 30 days after the invoice date accrues simple interest at
+10% per year until paid. If you dispute a charge with your bank and the
+dispute is decided in our favor, you still owe the amount.
 
 ## 11. Cancelling
 
@@ -203,8 +211,8 @@ payment before it applies to you.
 
 ## 17. General
 
-These terms, your order, and the Recurring Charge Authorization (if you have
-a plan) are the whole agreement. If they conflict, these terms control. If
+These terms, your order, and the Recurring Charge Authorization (if you pay
+for a plan by card) are the whole agreement. If they conflict, these terms control. If
 any part is found unenforceable, the rest still applies. We may transfer
 this agreement to a business that takes over our services, with notice to
 you.$md$,
