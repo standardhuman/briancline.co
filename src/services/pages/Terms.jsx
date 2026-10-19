@@ -9,8 +9,8 @@ export default function Terms() {
   return (
     <div className="min-h-screen bg-white">
       <PageMeta
-        title="Terms of Service — SailorSkills"
-        description="SailorSkills Terms of Service. Service description, pricing and estimates, recurring charge authorization, cancellation, and dispute resolution."
+        title="Terms of Service | Brian Cline Diving & Hull Cleaning"
+        description="Terms of Service for Brian Cline Diving & Hull Cleaning (Sailor Skills, LLC). Services, pricing and estimates, payment, cancellation, liability, and disputes."
       />
       <div className="max-w-3xl mx-auto px-6 py-12">
         <p className="text-sm text-gray-500">
