@@ -1255,7 +1255,7 @@ function OrderForm({ searchParams, navigate }) {
                   <label htmlFor="agree-charge" className="text-sm text-gray-700 cursor-pointer leading-snug">
                     {isRecurring ? (
                       <>
-                        I authorize Sailor Skills, LLC (Brian Cline Diving & Hull Cleaning) to charge my saved card for <strong>each scheduled service</strong> at the price documented in that service's report. {checkoutQuote?.mode === 'range' && <>Today's estimated first-cleaning range is <strong>{formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</strong>. </>}I understand each charge may include surcharges for heavy growth or extra anodes, documented in your service report and videos. I can cancel any time online with the Cancel my plan link in any service email, or by emailing diving@briancline.co.
+                        I authorize Sailor Skills, LLC (Brian Cline Diving & Hull Cleaning) to charge my saved card for <strong>each scheduled service</strong> at the price documented in that service's report. {checkoutQuote?.mode === 'range' && <>Today's estimated first-cleaning range is <strong>{formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</strong>. </>}I understand each charge may include surcharges for heavy growth or extra anodes, documented in your service report and videos. I can cancel any time online with the cancel link at the bottom of any service email, or by emailing diving@briancline.co.
                       </>
                     ) : (
                       <>
