@@ -511,7 +511,7 @@ test.describe('Legal documents', () => {
     const response = await page.goto('/terms');
     expect(response?.ok()).toBe(true);
     await expect(page.getByRole('heading', { name: 'Brian Cline Diving & Hull Cleaning Terms of Service' })).toBeVisible();
-    await expect(page.getByText('Version 2026-11-01', { exact: false })).toBeVisible();
+    await expect(page.getByText('Version 2026-11-02', { exact: false })).toBeVisible();
     await expect(page.getByText(/PLACEHOLDER PENDING ATTORNEY REVIEW/)).toHaveCount(0);
     await expect(page).toHaveTitle('Terms of Service | Brian Cline Diving & Hull Cleaning');
   });
@@ -520,7 +520,7 @@ test.describe('Legal documents', () => {
     const response = await page.goto('/recurring-authorization');
     expect(response?.ok()).toBe(true);
     await expect(page.getByRole('heading', { name: 'Recurring Charge Authorization' })).toBeVisible();
-    await expect(page.getByText('Version 2026-11-01', { exact: false })).toBeVisible();
+    await expect(page.getByText('Version 2026-11-02', { exact: false })).toBeVisible();
     await expect(page.getByText(/PLACEHOLDER PENDING ATTORNEY REVIEW/)).toHaveCount(0);
     await expect(page).toHaveTitle('Recurring Charge Authorization | Brian Cline Diving & Hull Cleaning');
   });

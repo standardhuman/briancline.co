@@ -9,13 +9,17 @@ import {
   TERMS_OF_SERVICE,
 } from "../src/services/pages/legal/terms-content.js";
 
-const EXPECTED_VERSION = "2026-11-01";
-const EXPECTED_EFFECTIVE_DATE = "November 1, 2026";
+const EXPECTED_VERSION = "2026-11-02";
+const EXPECTED_EFFECTIVE_DATE = "November 2, 2026";
 const EXPECTED_TERMS_HASH =
-  "953107ae46e15a3be4a9c0e9644d9e16a15ebeab368ee50e8e304b64e584cfb1";
+  "a3ad34e8846729f8f17d8d0810f8da1247b46f05b6abdd38c1f4693f16a8a614";
 const EXPECTED_RECURRING_HASH =
-  "c7bd75e498c0a9bef1701523b8b19b21be3a45b0e2b906119e3055aad3b94365";
+  "9e49f7431e78c5f86cee44e32ed23608f452fe081fdbe07c0a13676515bf386a";
 // Published history: must never change.
+const V20261101_TERMS_HASH =
+  "953107ae46e15a3be4a9c0e9644d9e16a15ebeab368ee50e8e304b64e584cfb1";
+const V20261101_RECURRING_HASH =
+  "c7bd75e498c0a9bef1701523b8b19b21be3a45b0e2b906119e3055aad3b94365";
 const V20261021_TERMS_HASH =
   "83da6125073d903a33a508130f6034917897525adf672a52a9cc5f04ea825448";
 // The recurring text was identical for 2026-08-05 and 2026-10-21.
@@ -35,7 +39,7 @@ function sha256(body) {
 }
 
 describe("legal document version contract", () => {
-  test("publishes the pinned 2026-11-01 legal documents without changing history", () => {
+  test("publishes the pinned 2026-11-02 legal documents without changing history", () => {
     const terms = TERMS_OF_SERVICE[EXPECTED_VERSION];
     const recurring = RECURRING_AUTHORIZATION[EXPECTED_VERSION];
 
@@ -63,6 +67,12 @@ describe("legal document version contract", () => {
     );
     expect(sha256(RECURRING_AUTHORIZATION["2026-10-21"].body)).toBe(
       V20261021_RECURRING_HASH,
+    );
+    expect(sha256(TERMS_OF_SERVICE["2026-11-01"].body)).toBe(
+      V20261101_TERMS_HASH,
+    );
+    expect(sha256(RECURRING_AUTHORIZATION["2026-11-01"].body)).toBe(
+      V20261101_RECURRING_HASH,
     );
   });
 
@@ -92,28 +102,33 @@ describe("legal document version contract", () => {
     expect(stripped).toBe(TERMS_OF_SERVICE["2026-08-05"].body);
   });
 
-  test("2026-11-01 names the LLC and carries the reworded terms", () => {
+  test("2026-11-02 names the LLC, carries the reworded terms, and documents by video", () => {
     const terms = TERMS_OF_SERVICE[EXPECTED_VERSION].body.replace(/\s+/g, " ");
-    const recurring = RECURRING_AUTHORIZATION[EXPECTED_VERSION].body;
+    const recurring = RECURRING_AUTHORIZATION[EXPECTED_VERSION].body.replace(/\s+/g, " ");
 
     expect(terms).toContain("Sailor Skills, LLC");
     expect(terms).toContain("simple interest at 10% per year");
     expect(terms).toContain("Payment is due within 7 days of the invoice date");
     expect(terms).not.toContain("due on receipt");
-    expect(terms).toContain('"Cancel my plan"');
+    expect(terms).toContain("the cancel link at the bottom of any service email");
     expect(terms).toContain("## 12. Redo or Refund");
+    expect(terms).toContain("in your service report and on video");
+    expect(terms).toContain("## 14. Video and Records");
     expect(recurring).toContain("Sailor Skills, LLC");
-    expect(recurring).toContain('"Cancel my plan"');
+    expect(recurring).toContain("the cancel link at the bottom of any service email");
+    expect(recurring).toContain("documented in your service report and on video");
 
     for (const body of [terms, recurring]) {
       expect(body).not.toContain("SailorSkills");
       expect(body).not.toContain("whichever is greater");
       expect(body).not.toContain("1.5% per month");
       expect(body).not.toMatch(/[\u2013\u2014]/);
+      expect(body).not.toMatch(/photo/i);
+      expect(body).not.toContain("Cancel my plan");
     }
   });
 
-  test("sql/terms-2026-11-01.sql inserts the module bodies byte-for-byte", () => {
+  test("sql/terms-2026-11-02.sql inserts the module bodies byte-for-byte", () => {
     const sqlPath = fileURLToPath(
       new URL(`../sql/terms-${EXPECTED_VERSION}.sql`, import.meta.url),
     );
@@ -137,7 +152,7 @@ describe("legal document version contract", () => {
     // Strict equality, no trimming: the stored row must be the exact module body.
     expect(inserts[0].body).toBe(TERMS_OF_SERVICE[EXPECTED_VERSION].body);
     expect(inserts[1].body).toBe(RECURRING_AUTHORIZATION[EXPECTED_VERSION].body);
-    expect(sql).toContain("timestamptz '2026-11-01 00:00:00-07'");
+    expect(sql).toContain("timestamptz '2026-11-02 00:00:00-08'");
   });
 
   test("checkout derives its submitted legal version from ACTIVE_VERSION", () => {
