@@ -19,15 +19,17 @@ If we decide we'd like to work together, you'll receive an email containing a co
     q: "How much training do I need?",
     a: `It depends — and for good reason: this is one of the most asked questions. It's also one of the hardest to answer before we've sailed together. That's why I offer both an hour-long consultation followed by a guarantee-clad first 3 hours.
 
-The biggest package I offer is 4 days, which is also the maximum length I'll trust a weather forecast. After the first session, we'll both know more about what the next session should look like, and we'll be in constant conversation about it throughout.`,
+The biggest prepaid block I offer is 24 hours, about 4 days, which is also the maximum length I'll trust a weather forecast. After the first session, we'll both know more about what the next session should look like, and we'll be in constant conversation about it throughout.`,
   },
   {
     q: "What are your rates?",
-    a: `I offer Single Day and Multi-Day Packages. Rates are independent of the number of students, so you can share with friends and save. Add 3% for credit card payments.
+    a: `Lessons are $150 per hour, as single sessions or prepaid hour blocks. Rates are independent of the number of students, so you can share with friends and save. Add 3% for credit card payments.
 
-Single Day: Half-day (3 hours) $300 + tax · Full-day (6.5–7 hours) $600 + tax
+Single sessions: Half-day (3 hours) $450 + tax · Full-day (6.5 hours) $975 + tax
 
-Multi-Day: Package A — 2 Full-days / 4 Half-days for $1,080 + tax (save $120) · Package B — 4 Full-days / 8 Half-days for $2,040 + tax (save $360)`,
+Prepaid hours: 12 hours for $1,620 + tax (save $180) · 24 hours for $3,060 + tax (save $540). Use them in any mix of half and full days. Only your actual time on the water is deducted, so a day that runs long or short is counted exactly.
+
+Returning students: lessons through December 31, 2026 stay at your previous rate.`,
   },
   {
     q: "How do I book or cancel a session?",
@@ -56,7 +58,7 @@ I require that I be added to your boat insurance as an additional insured or ope
   },
   {
     q: "Can I transfer time to another person?",
-    a: `Yes — you can designate anyone to receive lessons you've purchased. A transfer (training aboard a different vessel, or the original vessel without the original student) requires: a 1-hour consultation and vessel assessment ($100 or one hour from purchased lessons), a completed Training Application, the vessel meets safety requirements, and I'm added to the vessel's insurance.`,
+    a: `Yes — you can designate anyone to receive lessons you've purchased. A transfer (training aboard a different vessel, or the original vessel without the original student) requires: a 1-hour consultation and vessel assessment ($150, or one hour from your prepaid hours), a completed Training Application, the vessel meets safety requirements, and I'm added to the vessel's insurance.`,
   },
   {
     q: "Do the training hours expire?",
@@ -64,7 +66,7 @@ I require that I be added to your boat insurance as an additional insured or ope
   },
   {
     q: "How do I pay?",
-    a: `After the first 3 hours of training, you can: (1) Pay for your current session, (2) Purchase a Multi-Day package — your current session counts toward it, or (3) Walk away and pay nothing (see the guarantee above).
+    a: `After the first 3 hours of training, you can: (1) Pay for your current session, (2) Buy a prepaid hour block — your current session counts toward it, or (3) Walk away and pay nothing (see the guarantee above).
 
 Payment is made in person. There is a 10% discount for cash. I also accept Paypal, Venmo, Zelle, and credit cards. Please add 3% for credit card payments.
 
@@ -77,7 +79,7 @@ export default function TrainingFAQ() {
     <div>
       <PageMeta
         title="Sailing Lessons FAQ – Rates & Policies | Brian Cline"
-        description="Rates, cancellation policy, insurance requirements, and packages for private sailing lessons on San Francisco Bay with Brian Cline."
+        description="Rates, prepaid hours, cancellation policy, and insurance requirements for private sailing lessons on San Francisco Bay with Brian Cline."
       />
       <section className="py-16 md:py-24">
         <div className="max-w-3xl mx-auto px-6">
