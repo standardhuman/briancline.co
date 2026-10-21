@@ -24,6 +24,7 @@ import {
   type FormattedCheckoutQuote,
 } from './stored-checkout-quote.ts'
 import { INVOICE_TERMS_TEXT } from './invoice-terms.ts'
+import { readSchedulingRequest, renderSchedulingRequestAdminSection } from './order-scheduling.ts'
 
 export const PRO_REVIEW_URL = 'https://pro.sailorskills.com/admin/v2/orders?filter=review'
 
@@ -238,6 +239,7 @@ export function buildInvoiceAdminEmail(
     + detailRow('Dock / Slip', escapeHtml([order.dock, order.slip_number].filter(Boolean).join(' / ') || 'N/A'), true)
     + `</table>`
     + breakdownSection
+    + renderSchedulingRequestAdminSection(readSchedulingRequest(order.service_details), sectionHeading)
     + (order.notes
       ? sectionHeading('Customer Notes')
         + `<p style="margin:0;font-size:14px;white-space:pre-wrap;color:#334155;">${escapeHtml(order.notes)}</p>`
@@ -272,7 +274,7 @@ export function escapeHtml(value: string): string {
 }
 
 function emailLayout(title: string, body: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapeHtml(title)}</title></head><body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><table role="presentation" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;"><tr><td style="padding:32px 0;text-align:center;background:linear-gradient(135deg,#1565c0,#0097a7);border-radius:12px 12px 0 0;"><p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">briancline<span style="color:#4dd0e1;">.</span>co</p><p style="margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:#b2ebf2;">marine</p></td></tr><tr><td style="padding:36px 32px;background-color:#ffffff;">${body}</td></tr><tr><td style="padding:24px 32px;background-color:#1a2332;border-radius:0 0 12px 12px;text-align:center;"><p style="margin:0;font-size:13px;color:#94a3b8;"><a href="https://briancline.co" style="color:#4dd0e1;text-decoration:none;">briancline.co</a>&nbsp;&middot;&nbsp;<a href="mailto:brian@briancline.co" style="color:#4dd0e1;text-decoration:none;">brian@briancline.co</a></p></td></tr></table></body></html>`
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapeHtml(title)}</title></head><body style="margin:0;padding:0;background-color:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"><table role="presentation" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;"><tr><td style="padding:32px 0;text-align:center;background:linear-gradient(135deg,#1565c0,#0097a7);border-radius:12px 12px 0 0;"><p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">briancline<span style="color:#4dd0e1;">.</span>co</p><p style="margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:#b2ebf2;">marine</p></td></tr><tr><td style="padding:36px 32px;background-color:#ffffff;">${body}</td></tr><tr><td style="padding:24px 32px;background-color:#1a2332;border-radius:0 0 12px 12px;text-align:center;"><p style="margin:0;font-size:13px;color:#94a3b8;"><a href="https://briancline.co" style="color:#4dd0e1;text-decoration:none;">briancline.co</a>&nbsp;&middot;&nbsp;<a href="mailto:diving@briancline.co" style="color:#4dd0e1;text-decoration:none;">diving@briancline.co</a></p></td></tr></table></body></html>`
 }
 
 function detailRow(label: string, value: string, alt = false): string {

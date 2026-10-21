@@ -140,7 +140,7 @@
     {
       "key": "underwater_inspection",
       "name": "Underwater Inspection",
-      "description": "Photo/video documentation for insurance, surveys, or damage assessment.",
+      "description": "Video documentation for insurance, surveys, or damage assessment.",
       "pricing": {
         "type": "per_foot",
         "perFoot": 3.99,
