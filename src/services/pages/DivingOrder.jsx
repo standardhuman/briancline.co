@@ -305,6 +305,7 @@ function OrderForm({ searchParams, navigate }) {
   const initialCustomerEmail = searchParams.get("customerEmail") || "";
   const initialCustomerPhone = searchParams.get("customerPhone") || "";
   const initialPromoCode = (searchParams.get("promo") || "").toUpperCase().trim();
+  const initialSchedulingRequest = searchParams.get("schedulingRequest") || "";
 
   // Fall back to a REAL SERVICES key ('cleaning'); 'recurring_cleaning' is not a
   // defined key, so `service` was undefined and `service.name` blank-screened the
@@ -355,6 +356,9 @@ function OrderForm({ searchParams, navigate }) {
     paintAge: initialPaintAge,
     lastCleaned: initialLastCleaned,
     notes: "",
+    // Optional "Any scheduling needs?" answer. Stored as
+    // service_details.schedulingRequest, separate from the notes above.
+    schedulingRequest: initialSchedulingRequest,
     promoCode: initialPromoCode,
     // Item recovery fields
     recoveryLocation: "",
@@ -598,6 +602,7 @@ function OrderForm({ searchParams, navigate }) {
           lastCleaned: form.lastCleaned,
           anodeCount: initialAnodes,
           includesAnodes: parseInt(initialAnodes) > 0,
+          schedulingRequest: form.schedulingRequest.trim(),
         },
         // Consent / authorization audit fields — persisted by the edge function
         // into order_authorizations so we can defend chargebacks.
@@ -1055,6 +1060,16 @@ function OrderForm({ searchParams, navigate }) {
           )}
 
           <div className="mt-4">
+            <Field label="Any scheduling needs?">
+              <Textarea
+                placeholder="A date it needs to be done by (race, haul-out, guests, trip), or days to avoid"
+                rows={2}
+                value={form.schedulingRequest}
+                onChange={(e) => updateField("schedulingRequest", e.target.value)}
+              />
+            </Field>
+          </div>
+          <div className="mt-4">
             <Field label="Additional Notes">
               <Textarea
                 placeholder="Any special instructions, access codes, or things we should know..."
@@ -1240,7 +1255,7 @@ function OrderForm({ searchParams, navigate }) {
                   <label htmlFor="agree-charge" className="text-sm text-gray-700 cursor-pointer leading-snug">
                     {isRecurring ? (
                       <>
-                        I authorize Sailor Skills, LLC (Brian Cline Diving & Hull Cleaning) to charge my saved card for <strong>each scheduled service</strong> at the price documented in that service's report. {checkoutQuote?.mode === 'range' && <>Today's estimated first-cleaning range is <strong>{formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</strong>. </>}I understand each charge may include surcharges for heavy growth or extra anodes, documented with photos. I can cancel any time online with the Cancel my plan link in any service email, or by emailing diving@briancline.co.
+                        I authorize Sailor Skills, LLC (Brian Cline Diving & Hull Cleaning) to charge my saved card for <strong>each scheduled service</strong> at the price documented in that service's report. {checkoutQuote?.mode === 'range' && <>Today's estimated first-cleaning range is <strong>{formatCurrency(checkoutQuote.minCents / 100)}–{formatCurrency(checkoutQuote.maxCents / 100)}</strong>. </>}I understand each charge may include surcharges for heavy growth or extra anodes, documented in your service report and videos. I can cancel any time online with the Cancel my plan link in any service email, or by emailing diving@briancline.co.
                       </>
                     ) : (
                       <>

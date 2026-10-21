@@ -21,7 +21,7 @@ export const SERVICES = {
     key: "underwater_inspection",
     name: "Underwater Inspection",
     type: "per_foot",
-    description: "Photo/video documentation for insurance, surveys, or damage assessment.",
+    description: "Video documentation for insurance, surveys, or damage assessment.",
   },
   item_recovery: {
     key: "item_recovery",

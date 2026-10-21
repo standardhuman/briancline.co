@@ -8,6 +8,7 @@ import {
   type LeadFormData,
 } from '../_shared/lead-validation.ts'
 import { normalizeLeadBoatId, boatLookupPlan } from '../_shared/boat-match.ts'
+import { normalizeSchedulingRequest } from '../_shared/order-scheduling.ts'
 import {
   resolveProviderOwnerUserId,
   type ProviderOwnerLookup,
@@ -390,6 +391,13 @@ serve(async (req) => {
     formData.boatModel = sanitize((formData.boatModel as string) || '')
     if (formData.recoveryLocation) formData.recoveryLocation = sanitize(formData.recoveryLocation)
     if (formData.itemDescription) formData.itemDescription = sanitize(formData.itemDescription)
+    // Optional "Any scheduling needs?" answer rides in service_details (kept apart
+    // from customerNotes). Normalize it in place; drop the key when blank.
+    if (formData.serviceDetails && typeof formData.serviceDetails === 'object') {
+      const schedulingRequest = normalizeSchedulingRequest(formData.serviceDetails.schedulingRequest)
+      if (schedulingRequest) formData.serviceDetails.schedulingRequest = schedulingRequest
+      else delete formData.serviceDetails.schedulingRequest
+    }
 
     const allowedMarinas = await loadAllowedMarinas(supabase)
     const isItemRecovery = formData.service === 'Item Recovery'
