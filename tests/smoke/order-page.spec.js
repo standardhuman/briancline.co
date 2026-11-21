@@ -15,11 +15,11 @@ test('hull-cleaning order form loads', async ({ page }) => {
 
   const form = page.getByTestId('order-form');
   const fallback = page.getByTestId('order-unavailable');
-  await expect(form.or(fallback), 'neither the form nor the fallback appeared').toBeVisible({ timeout: 30000 });
+  await expect(form.or(fallback), '/hull-cleaning/order: neither the form nor the fallback appeared (likely the page JavaScript crashed)').toBeVisible({ timeout: 30000 });
 
   if (await fallback.isVisible()) {
     throw new Error(
-      'Order form failed to load: customers see the email/phone fallback.\n' +
+      '/hull-cleaning/order: form failed to load, customers see the email/phone fallback (likely the Supabase key or the get-stripe-config function).\n' +
       `Console errors:\n${consoleErrors.join('\n') || '(none)'}`,
     );
   }
