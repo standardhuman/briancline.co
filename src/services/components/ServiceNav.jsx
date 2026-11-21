@@ -18,7 +18,7 @@ export default function ServiceNav() {
     <nav className="fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-sm z-50 border-b border-gray-100">
       <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
         {/* Logo — clicks to /marine */}
-        <Link to="/marine" className="flex items-baseline gap-1.5 text-lg font-bold text-[#0a1628]" style={{ letterSpacing: "-0.02em", fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
+        <Link to="/marine" className="flex items-baseline gap-1.5 text-lg font-bold text-[#1a1a1a]" style={{ letterSpacing: "-0.02em", fontFamily: "'Inter', system-ui, sans-serif" }}>
           <span className="md:hidden">bc<span style={{ color: "#00bcd4", fontSize: "1.4em", lineHeight: 0, position: "relative", top: "0.05em" }}>.</span></span>
           <span className="hidden md:inline">briancline<span style={{ color: "#00bcd4" }}>.</span>co</span>
           <span className="text-xs font-semibold tracking-wide uppercase" style={{ color: "#7a5a22" }}>vessel management</span>
