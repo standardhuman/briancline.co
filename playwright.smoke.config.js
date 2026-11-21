@@ -12,6 +12,9 @@ export default defineConfig({
   outputDir: 'test-results/smoke',
   use: {
     baseURL: process.env.SMOKE_URL || 'https://briancline.co',
+    // Browse as a local customer would. The CI runner is on UTC, which makes
+    // the scheduler add a second "your time" line to every slot.
+    timezoneId: 'America/Los_Angeles',
     screenshot: 'only-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
