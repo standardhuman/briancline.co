@@ -1,9 +1,20 @@
 // Brian Cline Landing Page
 
 import { inject } from '@vercel/analytics';
+import { createAnalytics, sanitizeAttribution } from './analytics.js';
 
 // Initialize Vercel Analytics
 inject();
+
+// PostHog landing pageview (no-op without VITE_POSTHOG_KEY, under prerender,
+// and for Do Not Track). posthog-js is lazy-loaded only when enabled.
+createAnalytics({
+  loadSdk: () => import('posthog-js/dist/module.slim'),
+  env: import.meta.env,
+}).capture('$pageview', {
+  surface: 'landing',
+  ...sanitizeAttribution({ search: window.location.search, referrer: document.referrer }),
+});
 
 // Smooth scroll for navigation links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
