@@ -13,7 +13,7 @@ export function emailLayout(title, body) {
   <table role="presentation" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;">
     <tr>
       <td style="padding:32px 0;text-align:center;background:linear-gradient(135deg,#1565c0,#0097a7);border-radius:12px 12px 0 0;">
-        <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">briancline<span style="color:#4dd0e1;">.</span>co</p>
+        <p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">briancline<span style="color:#00bcd4;">.</span>co</p>
         <p style="margin:0;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;color:#b2ebf2;">marine</p>
       </td>
     </tr>
