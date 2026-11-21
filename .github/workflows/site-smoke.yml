@@ -1,0 +1,52 @@
+name: Site smoke
+
+# Every 3 hours, checks that briancline.co's customer-facing pages work:
+# home + contact paths, /marine, the hull-cleaning calculator and quote API,
+# the order form, sailing lessons + the schedule.briancline.co booking flow,
+# detailing and delivery lead forms, form endpoints, and mail (MX) records.
+# Specs: tests/smoke/. Read-only: pages are opened and clicked through, but
+# nothing is submitted, booked, paid or emailed. API checks use GET only.
+#
+# A failed scheduled run emails whoever last changed this schedule on the
+# default branch (GitHub's default notification for scheduled workflows).
+# Failure messages name the surface and the likely cause; a screenshot of each
+# failure is uploaded as an artifact.
+
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright's bundled Chromium
+        run: npx playwright install --with-deps --only-shell chromium
+
+      - name: Check the live site (one retry per check)
+        run: npx playwright test -c playwright.smoke.config.js
+
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-smoke-failure
+          path: test-results/smoke/
+          retention-days: 7
