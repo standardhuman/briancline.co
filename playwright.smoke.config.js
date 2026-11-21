@@ -7,7 +7,8 @@ export default defineConfig({
   testDir: './tests/smoke',
   timeout: 60000,
   retries: 1,
-  reporter: [['list']],
+  // The JSON report feeds the Telegram alert (scripts/smoke-telegram.sh).
+  reporter: [['list'], ['json', { outputFile: 'test-results/smoke-report.json' }]],
   outputDir: 'test-results/smoke',
   use: {
     baseURL: process.env.SMOKE_URL || 'https://briancline.co',
