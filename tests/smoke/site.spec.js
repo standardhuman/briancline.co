@@ -150,7 +150,9 @@ test.describe('schedule.briancline.co (sailing booking)', () => {
     await enabled[Math.min(3, enabled.length - 1)].click();
 
     await expect(page.getByText('Loading available times'), 'Scheduler: available times never finished loading (likely the google-calendar function or get_booked_slots failed)').toBeHidden({ timeout: 25000 });
-    const slot = page.getByRole('button', { name: /^\d{1,2}:\d{2}\s?(AM|PM)$/ }).first();
+    // Slot buttons start with the Pacific time; visitors in other time zones
+    // also see their local time after it.
+    const slot = page.getByRole('button', { name: /^\d{1,2}:\d{2}\s?(AM|PM)\b/ }).first();
     const none = page.getByText(/no (available )?times|fully booked|no availability/i).first();
     await expect(slot.or(none), 'Scheduler: after picking a date, neither time slots nor a "no times" message appeared').toBeVisible({ timeout: 5000 });
     expectNoPageErrors(errors, 'Scheduler');
