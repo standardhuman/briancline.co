@@ -7,8 +7,10 @@ name: Site smoke
 # Specs: tests/smoke/. Read-only: pages are opened and clicked through, but
 # nothing is submitted, booked, paid or emailed. API checks use GET only.
 #
-# A failed scheduled run emails whoever last changed this schedule on the
-# default branch (GitHub's default notification for scheduled workflows).
+# Alerts: a Telegram message on the first failing run and once when it passes
+# again (scripts/smoke-telegram.sh; needs the TELEGRAM_BOT_TOKEN and
+# TELEGRAM_CHAT_ID repo secrets, and is skipped without them). GitHub also
+# emails whoever last changed this schedule on every failed scheduled run.
 # Failure messages name the surface and the likely cause; a screenshot of each
 # failure is uploaded as an artifact.
 
@@ -19,6 +21,7 @@ on:
 
 permissions:
   contents: read
+  actions: read # to look up the previous run's result for the Telegram alert
 
 jobs:
   smoke:
@@ -41,6 +44,7 @@ jobs:
         run: npx playwright install --with-deps --only-shell chromium
 
       - name: Check the live site (one retry per check)
+        id: smoke
         run: npx playwright test -c playwright.smoke.config.js
 
       - name: Upload failure screenshots
@@ -50,3 +54,14 @@ jobs:
           name: site-smoke-failure
           path: test-results/smoke/
           retention-days: 7
+
+      - name: Telegram alert on first failure or recovery
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          OUTCOME: ${{ steps.smoke.outcome == 'success' && 'success' || 'failure' }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: bash scripts/smoke-telegram.sh
