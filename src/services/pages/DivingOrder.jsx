@@ -13,6 +13,8 @@ import { deriveCheckoutQuote } from "../lib/checkout-quote";
 import { resolveScaleMarkerPrice } from "../lib/order-marker";
 import { promoCodeForSubmission, promoConfirmation, promoPreviewFor } from "../lib/service-promo";
 import PageMeta from "../components/PageMeta";
+import OrderUnavailable from "../components/OrderUnavailable";
+import { loadStripeConfig } from "../lib/stripe-config-loader";
 import ConditionsPricing from "../components/ConditionsPricing";
 import EstimateScale from "../components/EstimateScale";
 import ConditionSelects from "../components/ConditionSelects";
@@ -81,16 +83,20 @@ const FREQUENCIES = [
 ];
 
 // ── Stripe loader (singleton) ──
-// Fetches publishable key from edge function to stay in sync with backend mode (test/live)
+// Fetches publishable key from edge function to stay in sync with backend mode (test/live).
+// Rejects on any failure or timeout; a failed load is forgotten so "Try again" refetches.
 let stripePromise = null;
 
 function getStripePromise() {
   if (stripePromise) return stripePromise;
-  stripePromise = fetch(`${SUPABASE_URL}/functions/v1/get-stripe-config`, {
+  stripePromise = loadStripeConfig({
+    supabaseUrl: SUPABASE_URL,
     headers: supabaseFunctionHeaders(),
-  })
-    .then((res) => res.json())
-    .then(({ publishableKey }) => loadStripe(publishableKey));
+    loadStripe,
+  }).catch((err) => {
+    stripePromise = null;
+    throw err;
+  });
   return stripePromise;
 }
 
@@ -807,7 +813,7 @@ function OrderForm({ searchParams, navigate }) {
       <div className="max-w-6xl mx-auto px-6 pb-16">
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
       {/* Left: Form */}
-      <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-6">
+      <form onSubmit={handleSubmit} className="lg:col-span-3 space-y-6" data-testid="order-form">
         {/* Boat Details (hidden for item recovery) */}
         {showBoatInfo && (
           <SectionCard icon={Ship} title="Boat Details" description="Tell us about your vessel">
@@ -1395,15 +1401,36 @@ export default function DivingOrder() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [stripeReady, setStripeReady] = useState(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    getStripePromise().then((s) => setStripeReady(s));
-  }, []);
+    let cancelled = false;
+    getStripePromise().then(
+      (s) => { if (!cancelled) setStripeReady(s); },
+      (err) => {
+        console.error("Order form failed to load:", err);
+        if (!cancelled) setLoadFailed(true);
+      },
+    );
+    return () => { cancelled = true; };
+  }, [attempt]);
+
+  if (loadFailed) {
+    return (
+      <OrderUnavailable
+        onRetry={() => {
+          setLoadFailed(false);
+          setAttempt((n) => n + 1);
+        }}
+      />
+    );
+  }
 
   if (!stripeReady) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#0073a8]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[#0073a8]" aria-label="Loading order form" />
       </div>
     );
   }

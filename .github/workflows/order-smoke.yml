@@ -1,0 +1,45 @@
+name: Order page smoke
+
+# Checks every 3 hours that the live hull-cleaning order form loads.
+# Read-only: opens the page, never fills or submits it. A failed run emails
+# whoever last edited this schedule (GitHub's default for scheduled runs).
+# Note: GitHub only runs schedules from the repo's default branch.
+
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps --only-shell chromium
+
+      - name: Check the live order form
+        run: npx playwright test -c playwright.smoke.config.js
+
+      - name: Upload failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: order-smoke-failure
+          path: test-results/smoke/
+          retention-days: 7
